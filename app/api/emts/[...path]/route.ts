@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 const BACKEND_BASE_URL = process.env.EMTS_BACKEND_BASE_URL;
+const PROXY_SECRET = process.env.VERCEL_RENDER_SECRET;
 
 async function proxyRequest(
   request: NextRequest,
@@ -9,6 +10,13 @@ async function proxyRequest(
   if (!BACKEND_BASE_URL) {
     return NextResponse.json(
       { error: "EMTS_BACKEND_BASE_URL is not configured." },
+      { status: 500 }
+    );
+  }
+
+  if (!PROXY_SECRET) {
+    return NextResponse.json(
+      { error: "VERCEL_RENDER_SECRET is not configured." },
       { status: 500 }
     );
   }
@@ -22,7 +30,8 @@ async function proxyRequest(
   const response = await fetch(targetUrl, {
     method: request.method,
     headers: {
-      "Content-Type": request.headers.get("content-type") ?? "application/json"
+      "Content-Type": request.headers.get("content-type") ?? "application/json",
+      "x-emts-proxy-secret": PROXY_SECRET
     },
     body: ["GET", "HEAD"].includes(request.method) ? undefined : await request.text(),
     cache: "no-store"
