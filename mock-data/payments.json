@@ -1,0 +1,32 @@
+[
+  {
+    "paymentId": "pay-001",
+    "bookingId": "bok-001",
+    "paymentGatewayCode": "RAZORPAY_MOCK",
+    "amountPaid": 9912,
+    "currencyCode": "INR",
+    "paymentStatus": "SUCCESS",
+    "transactionReference": "TXN-EMTS-900120",
+    "paidAt": "2026-03-20T09:46:00.000Z"
+  },
+  {
+    "paymentId": "pay-002",
+    "bookingId": "bok-002",
+    "paymentGatewayCode": "CORPORATE_LINK",
+    "amountPaid": 118944,
+    "currencyCode": "INR",
+    "paymentStatus": "SUCCESS",
+    "transactionReference": "LINK-EMTS-420014",
+    "paidAt": "2026-03-18T13:10:00.000Z"
+  },
+  {
+    "paymentId": "pay-003",
+    "bookingId": "bok-003",
+    "paymentGatewayCode": "STRIPE_MOCK",
+    "amountPaid": 3776,
+    "currencyCode": "INR",
+    "paymentStatus": "FAILED",
+    "transactionReference": "TXN-EMTS-900199",
+    "paidAt": "2026-03-22T16:06:00.000Z"
+  }
+]

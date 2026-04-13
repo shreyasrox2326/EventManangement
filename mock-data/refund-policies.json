@@ -1,0 +1,19 @@
+[
+  {
+    "refundPolicyId": "rpl-default-001",
+    "title": "Standard EMTS Refund Policy",
+    "fullRefundWindowDays": 7,
+    "partialRefundWindowHours": 48,
+    "partialRefundPercentage": 50,
+    "policyDescription": "Full refund before 7 days, 50 percent refund before 48 hours, no refund after that."
+  },
+  {
+    "refundPolicyId": "rpl-event-001",
+    "eventId": "evt-001",
+    "title": "Leadership Summit Refund Policy",
+    "fullRefundWindowDays": 7,
+    "partialRefundWindowHours": 48,
+    "partialRefundPercentage": 50,
+    "policyDescription": "Full refund before 7 days, 50 percent refund before 48 hours, no refund after that."
+  }
+]

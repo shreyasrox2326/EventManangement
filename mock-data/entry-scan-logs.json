@@ -1,0 +1,20 @@
+[
+  {
+    "entryScanLogId": "log-001",
+    "eventId": "evt-001",
+    "ticketId": "tkt-002",
+    "staffUserId": "usr-stf-001",
+    "scannedAt": "2026-04-18T05:10:00.000Z",
+    "scanResult": "VALID",
+    "scanChannel": "CAMERA"
+  },
+  {
+    "entryScanLogId": "log-002",
+    "eventId": "evt-001",
+    "ticketId": "tkt-002",
+    "staffUserId": "usr-stf-001",
+    "scannedAt": "2026-04-18T05:12:00.000Z",
+    "scanResult": "DUPLICATE",
+    "scanChannel": "MANUAL"
+  }
+]

@@ -1,0 +1,53 @@
+[
+  {
+    "userId": "usr-cus-001",
+    "fullName": "Riya Sharma",
+    "emailAddress": "riya@emts.demo",
+    "phoneNumber": "+91 9876543210",
+    "roleCode": "CUSTOMER",
+    "isTwoFactorEnabled": false,
+    "lastLoginAt": "2026-03-25T10:45:00.000Z",
+    "accountStatus": "ACTIVE"
+  },
+  {
+    "userId": "usr-org-001",
+    "fullName": "Aarav Malhotra",
+    "emailAddress": "aarav@emts.demo",
+    "phoneNumber": "+91 9123456780",
+    "roleCode": "ORGANIZER",
+    "isTwoFactorEnabled": true,
+    "lastLoginAt": "2026-03-25T07:00:00.000Z",
+    "accountStatus": "ACTIVE"
+  },
+  {
+    "userId": "usr-stf-001",
+    "fullName": "Neha Verma",
+    "emailAddress": "neha@emts.demo",
+    "phoneNumber": "+91 9988776655",
+    "roleCode": "STAFF",
+    "isTwoFactorEnabled": false,
+    "lastLoginAt": "2026-03-24T18:10:00.000Z",
+    "accountStatus": "ACTIVE"
+  },
+  {
+    "userId": "usr-adm-001",
+    "fullName": "System Administrator",
+    "emailAddress": "admin@emts.demo",
+    "phoneNumber": "+91 9000000000",
+    "roleCode": "ADMIN",
+    "isTwoFactorEnabled": true,
+    "lastLoginAt": "2026-03-25T06:40:00.000Z",
+    "accountStatus": "ACTIVE"
+  },
+  {
+    "userId": "usr-cor-001",
+    "fullName": "Karan Bedi",
+    "emailAddress": "corporate@emts.demo",
+    "phoneNumber": "+91 9090909090",
+    "roleCode": "CORPORATE_CLIENT",
+    "companyName": "Vertex Consulting Pvt. Ltd.",
+    "isTwoFactorEnabled": false,
+    "lastLoginAt": "2026-03-24T11:15:00.000Z",
+    "accountStatus": "ACTIVE"
+  }
+]

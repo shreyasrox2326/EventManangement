@@ -1,0 +1,44 @@
+[
+  {
+    "bookingId": "bok-001",
+    "customerId": "usr-cus-001",
+    "eventId": "evt-001",
+    "bookingStatus": "CONFIRMED",
+    "bookingChannel": "WEB",
+    "quantity": 2,
+    "subtotalAmount": 8400,
+    "gstAmount": 1512,
+    "totalAmount": 9912,
+    "createdAt": "2026-03-20T09:45:00.000Z",
+    "ticketIds": ["tkt-001", "tkt-002"],
+    "paymentId": "pay-001"
+  },
+  {
+    "bookingId": "bok-002",
+    "customerId": "usr-cor-001",
+    "eventId": "evt-001",
+    "bookingStatus": "CONFIRMED",
+    "bookingChannel": "CORPORATE",
+    "quantity": 28,
+    "subtotalAmount": 100800,
+    "gstAmount": 18144,
+    "totalAmount": 118944,
+    "createdAt": "2026-03-18T11:30:00.000Z",
+    "ticketIds": [],
+    "paymentId": "pay-002"
+  },
+  {
+    "bookingId": "bok-003",
+    "customerId": "usr-cus-001",
+    "eventId": "evt-002",
+    "bookingStatus": "FAILED",
+    "bookingChannel": "WEB",
+    "quantity": 1,
+    "subtotalAmount": 3200,
+    "gstAmount": 576,
+    "totalAmount": 3776,
+    "createdAt": "2026-03-22T16:05:00.000Z",
+    "ticketIds": [],
+    "paymentId": "pay-003"
+  }
+]

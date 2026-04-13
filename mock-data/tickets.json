@@ -1,0 +1,25 @@
+[
+  {
+    "ticketId": "tkt-001",
+    "bookingId": "bok-001",
+    "eventId": "evt-001",
+    "ticketCategoryId": "tcat-002",
+    "attendeeName": "Riya Sharma",
+    "qrCodeValue": "EMTS-QR-001-ALPHA",
+    "seatLabel": "Hall A / Row 4 / Seat 11",
+    "ticketStatus": "ACTIVE",
+    "issuedAt": "2026-03-20T09:46:00.000Z"
+  },
+  {
+    "ticketId": "tkt-002",
+    "bookingId": "bok-001",
+    "eventId": "evt-001",
+    "ticketCategoryId": "tcat-002",
+    "attendeeName": "Riya Sharma",
+    "qrCodeValue": "EMTS-QR-002-BETA",
+    "seatLabel": "Hall A / Row 4 / Seat 12",
+    "ticketStatus": "USED",
+    "issuedAt": "2026-03-20T09:46:00.000Z",
+    "validatedAt": "2026-04-18T05:10:00.000Z"
+  }
+]

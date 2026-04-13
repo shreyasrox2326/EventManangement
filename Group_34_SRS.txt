@@ -1,0 +1,690 @@
+--- PAGE 1 ---
+SOFTW ARE REQUIREMENTS
+SPECIFICATION
+for
+Event Management and Ticketing
+System
+Version 1.0
+Prepared by :
+1. Akshita Siddamshetty (2310110659)
+2. Amey Gautam (2310110403)
+3. Daksh Chopra (2310110453)
+4. Manya Bisht (2310110522)
+5. Shreyas Marwah (2310110604)
+Submitted to : Prof. Rajib Mall
+and Prof. Pooja Singh
+February 6, 2026
+1
+
+--- PAGE 2 ---
+Contents
+1 Introduction 5
+1.1 Purpose . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 5
+1.2 Document Conventions . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 5
+1.3 Intended Audience . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 5
+1.4 Additional Information . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 6
+1.5 SRS Team Members . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 6
+1.6 References . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 6
+2 Overall Description 7
+2.1 Product Perspective . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 7
+2.2 Product Functions . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 7
+2.2.1 Event Creation & Management . . . . . . . . . . . . . . . . . . . . 7
+2.2.2 Ticketing System . . . . . . . . . . . . . . . . . . . . . . . . . . . . 8
+2.2.3 Refund and Cancellation Administration . . . . . . . . . . . . . . . 8
+2.2.4 Entry Validation . . . . . . . . . . . . . . . . . . . . . . . . . . . . 8
+2.2.5 Bulk Booking for Corporates . . . . . . . . . . . . . . . . . . . . . 8
+2.2.6 Reporting & Analytics . . . . . . . . . . . . . . . . . . . . . . . . . 8
+2.2.7 Notifications . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 8
+2.2.8 Admin Control Panel . . . . . . . . . . . . . . . . . . . . . . . . . 8
+2.3 Characteristics and Classes of users . . . . . . . . . . . . . . . . . . . . . . 9
+2.4 Operating Environment . . . . . . . . . . . . . . . . . . . . . . . . . . . . 9
+2.4.1 Client Side . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 9
+2.4.2 Server Side . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 9
+2.4.3 Scanning Environment . . . . . . . . . . . . . . . . . . . . . . . . . 10
+2.5 User Environment . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 10
+2.6 Implementation / Design Constraints . . . . . . . . . . . . . . . . . . . . . 10
+2.7 Assumptions and Dependencies . . . . . . . . . . . . . . . . . . . . . . . . 11
+2.7.1 Assumptions . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 11
+2.7.2 Dependencies . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 11
+3 External Interface Requirements 12
+3.1 User Interfaces . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 12
+3.2 Hardware Interfaces . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 12
+3.3 Software Interfaces . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 13
+3.4 Communication Protocols and Interfaces . . . . . . . . . . . . . . . . . . . 13
+2
+
+--- PAGE 3 ---
+4 System Features 14
+4.1 Create Event . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 14
+4.1.1 Description . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 14
+4.1.2 Action/Result . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 14
+4.1.3 Functional Requirements . . . . . . . . . . . . . . . . . . . . . . . 14
+4.2 Book Ticket . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 15
+4.2.1 Description . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 15
+4.2.2 Action and Result . . . . . . . . . . . . . . . . . . . . . . . . . . . 15
+4.2.3 Functional Requirements . . . . . . . . . . . . . . . . . . . . . . . 15
+4.3 Cancel Ticket . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 16
+4.3.1 Description . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 16
+4.3.2 Action and Result . . . . . . . . . . . . . . . . . . . . . . . . . . . 16
+4.3.3 Functional Requirements . . . . . . . . . . . . . . . . . . . . . . . 16
+4.4 Non-Ordinary Ticket Booking (bulk, VIP, complementary) . . . . . . . . 17
+4.4.1 Description . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 17
+4.4.2 Action and Result . . . . . . . . . . . . . . . . . . . . . . . . . . . 17
+4.4.3 Functional Requirements . . . . . . . . . . . . . . . . . . . . . . . 17
+4.5 Entry Validation and Attendance . . . . . . . . . . . . . . . . . . . . . . . 18
+4.5.1 Description . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 18
+4.5.2 Action and Result . . . . . . . . . . . . . . . . . . . . . . . . . . . 18
+4.5.3 Functional Requirements . . . . . . . . . . . . . . . . . . . . . . . 18
+4.6 Reports . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 19
+4.6.1 Description . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 19
+4.6.2 Action and Result . . . . . . . . . . . . . . . . . . . . . . . . . . . 19
+4.6.3 Functional Requirements . . . . . . . . . . . . . . . . . . . . . . . 19
+5 Other Non-functional Requirements 20
+5.1 Performance Requirements . . . . . . . . . . . . . . . . . . . . . . . . . . 20
+5.2 Safety Requirements . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 20
+5.2.1 System Reliability . . . . . . . . . . . . . . . . . . . . . . . . . . . 20
+5.2.2 Data Backup and Recovery . . . . . . . . . . . . . . . . . . . . . . 20
+5.2.3 Overbooking and Capacity Control . . . . . . . . . . . . . . . . . . 20
+5.2.4 Transaction Safety . . . . . . . . . . . . . . . . . . . . . . . . . . . 21
+5.2.5 Operational Safety at Venue . . . . . . . . . . . . . . . . . . . . . . 21
+5.2.6 Logging and Monitoring . . . . . . . . . . . . . . . . . . . . . . . . 21
+5.3 Security Requirements . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 21
+5.3.1 Authentication . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 21
+5.3.2 Authorization and Access Control . . . . . . . . . . . . . . . . . . 21
+5.3.3 Data Confidentiality . . . . . . . . . . . . . . . . . . . . . . . . . . 22
+5.3.4 Payment Security . . . . . . . . . . . . . . . . . . . . . . . . . . . . 22
+5.3.5 Ticket and Fraud Protection . . . . . . . . . . . . . . . . . . . . . 22
+5.4 Software Quality Attributes . . . . . . . . . . . . . . . . . . . . . . . . . . 22
+5.4.1 Reliability . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 22
+3
+
+--- PAGE 4 ---
+5.5 Project Documentation . . . . . . . . . . . . . . . . . . . . . . . . . . . . 23
+5.5.1 Maintainer Documentation . . . . . . . . . . . . . . . . . . . . . . 23
+5.5.2 User Documentation . . . . . . . . . . . . . . . . . . . . . . . . . . 23
+4
+
+--- PAGE 5 ---
+1 Introduction
+1.1 Purpose
+This project is for the development of an Event Management & Ticketing System, which
+will be used for managing events such as Conferrences, Concerts, Workshops, etc. As
+of now, all the events described in the above problem statement are being managed
+through counter registrations or manual ticketing systems. However, this is causing
+many problems, including duplicate registrations, untidy registrations etc.
+So, in short, the aim of EMTS is to move all this into a single online solution, where the
+events can be managed by the people organizing them. So, for the customers, basically,
+they have to be able to access the event, they have to be able to buy the tickets online,
+they have to have a QR or a Barcode ticket to get into the events, etc., without any
+kind of confusion.
+1.2 Document Conventions
+To keep this project description intelligible, a number of terms are used throughout:
+(a)Organizer:the creator/team of the event
+(b)EMTS:Event Management and Ticketing System
+(c)Customer:Any person browsing the event and booking tickets.
+(d)Staff:Venue staff, validates by scanning the ticket
+(e)Types of tickets:VIP, Regular, Student concession, Complimentary
+(f)Refund Rules:The rules for refunds are specified using everyday time-based
+vocabulary (for example, ”full refund before 7 days”)
+1.3 Intended Audience
+The intended audience is event organisers, corporates, customers who want to buy tickets
+to events and event staff.
+5
+
+--- PAGE 6 ---
+1.4 Additional Information
+EMTS covers the whole life cycle of the event. Organizers can add events that contain
+information such as type, venue, capacity, date, duration, and price of tickets in advance.
+There can be different categories of tickets, such as paid and/or free for VIPs, sponsors,
+and staff. There can be bulk bookings, which are available at a discount.
+The customers can look at the events coming up, check the availlability of these, and
+can also make an online booking and obtain a ticket with a unique QR/Barcode. In the
+case of cancellations, the refunds will be processed according to the rules, where the full
+refund has to be made before the completion of 7 days, and 50% before the completion
+of 48 hours, and no refunds will be made after this period.
+During the process, it is also possible for the tickets to be scanned in order to verify
+attendance. There is also the option of viewing the revenue by type of ticket, occupancy,
+and non-shows report for offline agents after the event, as well as the performance report
+for the sales agents. Additionally, the application includes a tracker where expenses can
+be entered against fees, venues, equipment, etc., in the form of budgets.
+1.5 SRS Team Members
+Prepared by:
+(a) Akshita Siddamshetty (2310110659)
+(b) Amey Gautam (2310110403)
+(c) Daksh Chopra (2310110453)
+(d) Manya Bisht (2310110522)
+(e) Shreyas Marwah (2310110604)
+1.6 References
+(a) Problem Statement
+(b) Standard practices used in ticketing workflows (QR/Barcode entry, category-based
+pricing, time-based refunds)
+(c) Spring Boot Framework Documentation – Spring.io. https://spring.io/projects/spring-
+boot (Used for UI rendering and backend architecture).
+(d) ZXing (”Zebra Crossing”) Barcode Project – GitHub. https://github.com/zxing/zxing
+(Used for Java-based QR code generation and scanning).
+(e) The JSON Data Interchange Format – ECMA International. https://www.json.org/json-
+en.html (Standard for API data communication).
+6
+
+--- PAGE 7 ---
+2 Overall Description
+2.1 Product Perspective
+The Event Management and Ticketing System (EMTS) is a web-based application, and
+mobile based application, which has the aim of coordinating the whole event planning
+process, ticketing and coordinating the attendees to conferences, concerts and workshops.
+This does away with manual ticketing of events as it is done through a counter in addition
+to physical tickets. EMTS is a combined platform that is employed to initiate interplay
+between various stakeholders, including organizers, attendees, venue staff, corporate
+clients, and administrators. EMTS is applied as a unified system of organizing the
+realization of events, the sale of tickets, and payment, validation, and analysis.
+The system communicates with other peripheral elements like:
+(a) Online payment gateways (e.g., Razorpay/Stripe/ PayU),
+(b) Email notification service, SMS notification service,
+(c) The QR/Barcode scanners in places,
+(d) Databases and cache layers based on the cloud.
+Its architecture revolves around a micro services (modular and service oriented) model
+which allows it to scale, be highly available, and maintainable. It is primarily based on
+the Java(Spring boot) and MySQL/PostgreSQL, Redis, and the message queuing system
+like RabbitMQ/Kafka.
+2.2 Product Functions
+The key services proposed by EMTS are:
+2.2.1 Event Creation & Management
+(a) Organizers are able to generate, update, publish and maintain events.
+(b) Multitask-support (Conference, Concert, Workshop).
+(c) Capacity planning and venue management.
+7
+
+--- PAGE 8 ---
+2.2.2 Ticketing System
+(a) Several types of tickets (VIP, Regular, Student, Complimentary).
+(b) On-the-fly availability of seats.
+(c) Safety in QR/Barcode Ticket generation.
+2.2.3 Refund and Cancellation Administration
+(a) Time-based refund policies.
+(b) Automatic processing of refunds.
+(c) Detailed refund logging.
+2.2.4 Entry Validation
+(a) Venue staff can scan tickets.
+(b) Prevent duplicate entries.
+(c) Latest live attendance records.
+2.2.5 Bulk Booking for Corporates
+(a) Organizations will be able to reserve several seats.
+(b) Coded discount invoicing and GST.
+2.2.6 Reporting & Analytics
+(a) Revenue reports.
+(b) No-show and seat occupancy statistics.
+(c) A budget vs. expense tracker of the organizers.
+2.2.7 Notifications
+(a) Booking confirmations.
+(b) Refund alerts.
+(c) Reminders and last minute news.
+2.2.8 Admin Control Panel
+(a) User and role management.
+(b) System setup environment.
+8
+
+--- PAGE 9 ---
+2.3 Characteristics and Classes of users
+(a)Event Organizer:Designs and oversees events, ticket pricing, passes and finan-
+cial management.
+(b)Customer / Attendee:Browse events, purchase tickets, pay and attend events.
+(c)Venue Staff / Ticket Validator:Reads QR codes to scan upon entry and
+validate tickets.
+(d)Admin:User, role and refund policy management, system settings.
+(e)Corporate Client:Places bulk bookings, invoices and payment links.
+Role-based access control (RBAC) is applied to each user role through the use of Spring
+Security and the JWT authentication.
+2.4 Operating Environment
+The system will be on the following environment:
+2.4.1 Client Side
+(a)Browsers:Chrome, Firefox, Safari, and Edge. To ensure that the system is easily
+accessible by any of the common browsers by its users without any compatibility
+problems.
+(b)Mobile platforms:Android and iOS. Making the system accessible to students,
+attendees, and staff to access it easily on their smartphones.
+2.4.2 Server Side
+(a)Java 17+ with Spring Boot:To have a modernized, secure, and scalable back-
+end to serve large amounts of users.
+(b)MySQL/PostgreSQL database:To store events, tickets, users and transactions
+reliably.
+(c)Redis to cache the availability of seats:To have updated seat availability in
+real time even when bookings are at the peak.
+(d)RabbitMQ/Kafka in the case of asynchronous notifications:To dispose of
+booking confirmations and alerts fast without slackening the system.
+9
+
+--- PAGE 10 ---
+2.4.3 Scanning Environment
+(a)QR scanning devices (Android/iOs):Enabling the staff at the venues to easily
+validate tickets on the door.
+(b)Specialized scanners in the facilities:To facilitate quick and normal manage-
+ment of crowds in big events.
+2.5 User Environment
+The system has been developed to be applied in:
+(a) Colleges, corporate institutions and universities where such events as seminars,
+fests and workshops are commonly held.
+(b) Music concerts and cultural festivals where the masses demand exciting digital
+ticketing rather than traditional counters.
+(c) Conferences and seminars on a professional level to simplify registrations, check-ins
+and reporting.
+(d) Sports events and workshops to where attendance tracking in real-time is required.
+Users require:
+(a)Internet connection:All the bookings and validations are completed online.
+(b)Web browser or mobile device:So users do not need to install special software
+to access the system.
+(c)To the staff of the venue:QR scanner or mobile application to scan and check
+tickets fast at entrance gates.
+(d)General users:Do not need any special hardware, enabling all people with simple
+devices to access the system.
+2.6 Implementation / Design Constraints
+(a) The system has to be created in Java based on Spring Boot to pursue the enterprise
+development practices in line with the industry standards.
+(b) Should have Spring Security + JWT authentication in place to provide secure
+access control and role-based access.
+(c) Bcrypt hashing should be used to store passwords to secure the user credentials in
+the event of a database breach.
+(d) QR codes should have coded payloads in order to avoid manipulation, so bogus
+tickets can not be created and used again.
+10
+
+--- PAGE 11 ---
+(e) Need to be payment gateway that is PCI-DSS compliant to deal with online trans-
+actions and keep customer information safe.
+(f) The system should allow exports in CSV/ PDF, enabling organizers to download
+reports to record keeping.
+(g) Should be able to connect with Android and iOS scanners making sure that the
+venues verify tickets easily.
+2.7 Assumptions and Dependencies
+2.7.1 Assumptions
+(a) Internet access is stable among users. Booking and validation need to be connected
+online.
+(b) There will be payment gateway services. Transactions are able to be processed
+without losses.
+(c) Efforts such as venues will offer ticketing scanning devices to facilitate a hassle-free
+check-in in events.
+(d) The organizers will specify proper information about the events. The system is
+based on precise data to schedule and ticket.
+2.7.2 Dependencies
+(a)Provider of payment gateway (Razorpay/Stripe/PayU):Must be able to
+take online payments safely.
+(b)Email service providers and SMS:Had to make booking confirmations and
+alerts.
+(c)QR scanning libraries (ZXing):QR code reading and generating.
+(d)Scalability through cloud hosting:To support thousands of users in the high-
+demand events.
+11
+
+--- PAGE 12 ---
+3 External Interface Requirements
+This section details how the Event Management and Ticketing System (EMTS) interacts
+with human users, specialized hardware, other software systems, and the underlying
+communication network.
+3.1 User Interfaces
+The system provides a responsive web-based interface built for three distinct user roles:
+Customers, Organizers/Staff, and System Administrators.
+(a)Customer Web Portal:The layout focuses on a ”Search-and-Select” flow. A
+main dashboard displays featured events like Concerts, Conferences, Workshops.
+The booking interface features a dynamic seating map where users can click on
+available sections to choose their ticket category (VIP, Regular, etc.). Upon pay-
+ment, a confirmation screen displays the unique QR code for immediate download
+or viewing.
+(b)Organizer Management Dashboard:Designed for desktop use, this UI follows
+a data-heavy sidebar navigation. Key screens include ”Event Creation” (form-
+based with validation for capacity and dates) and a ”Financial Tracker” screen
+that uses bar charts to compare Budget vs. Actual expenses.
+(c)Staff Entry-Scan View:A mobile-optimized view for venue staff. It features a
+simplified interface dominated by a ”Camera Scan” window for ticket validation
+and a live numerical counter showing real-time attendance vs. total capacity.
+3.2 Hardware Interfaces
+The EMTS interacts with external hardware primarily for ticketing validation and print-
+ing:
+(a)QR/Barcode Scanners:The system supports dedicated handheld HID (Human
+Interface Device) scanners used by staff at venue entrances. These devices connect
+via USB or Bluetooth and act as keyboard input emulators for the Java application
+to process the ticket’s unique ID.
+12
+
+--- PAGE 13 ---
+3.3 Software Interfaces
+The application depends on the following software integrations to maintain data integrity
+and handle financial transactions:
+(a)Database Management System:The system will interface with a MySQL or
+PostgreSQL database using JDBC (Java Database Connectivity). This handles all
+persistent storage for event details, bulk booking records, and attendance logs.
+(b)Payment Gateway API:The system will communicate with a third-party pay-
+ment processor (such as Razorpay) via their Java SDK. This handles secure credit
+card processing and automatic refund execution based on the logic defined in the
+project scope.
+(c)Mail/Notification Server:An integration with an SMTP server or an API like
+SendGrid via the JavaMail API to send digital tickets and QR codes to customer
+email addresses automatically after booking.
+3.4 Communication Protocols and Interfaces
+All communications within the system and to external services are strictly governed by
+industry-standard protocols to ensure security and speed:
+(a)HTTPS:All data transmission between the client-side browser and the Java back-
+end will be encrypted using TLS/SSL via HTTPS (Port 443).
+(b)RESTful APIs:Communication between the front-end and the Java business
+logic is conducted via RESTful web services. All data is exchanged in JSON
+(JavaScript Object Notation) format for efficiency.
+(c)WebSockets:To fulfill the requirement for ”real-time attendance data,” the sys-
+tem may use WebSockets to push live entry counts from the staff scanning app to
+the organizer dashboard without requiring a page refresh.
+(d)TCP/IP:Standard protocol for all internal database connections and server-to-
+server API calls.
+13
+
+--- PAGE 14 ---
+4 System Features
+4.1 Create Event
+4.1.1 Description
+Create event allows the organizer to register a new event into the EMTS. The organizer
+would need to provide all relevant information about the event, including the name,
+type, venue, capacity, ticket price and date(s) and duration. Following which, the users
+will be able to purchase tickets for the event.
+Creation of events is a critical feature of the EMTS.
+4.1.2 Action/Result
+For the creation of an event, the organizer will be presented with a form, into which
+they will be required to fill all the relevant fields and press submit. After this the system
+validates all inputs, like capacity>0, date>current date, price≥0 etc.
+If the inputs are valid, the event is added to the database with a unique event id.
+The event then becomes visible in the upcoming events list. If invalid, an error message
+is displayed and the erroneous fields are highlighted in red, prompting the organizer to
+correct them.
+4.1.3 Functional Requirements
+(a) The system shall allow the user to input all details of the event in a form like
+Name, Type, Venue, Capacity (int), ticket price, event date(s) (may be multi-day
+or recurring), start and end timings, description.
+(b) The system shall support the creation of multiple ticket categories each with dif-
+ferent prices, quantity, start of sale date, for each event.
+(c) The system shall allow the organizer to specify a refund policy in case of cancella-
+tion, this may range from no refund, to a partial or full refund depending on the
+amount of time remaining to the start of the event.
+(d) The system shall validate that the capacity is a positive number, that the date is
+not in the past, that the ticket prices are non-negative, and that the name/venue
+fields are not empty.
+(e) The system shall notify the user (organizer) by means of a popup in case validation
+fails and highlight erroneous fields in red, prompting the user to make corrections.
+14
+
+--- PAGE 15 ---
+(f) The system shall display a success message in case the event is created successfully.
+(g) The system shall store the created event in the database.
+4.2 Book Ticket
+4.2.1 Description
+Book ticket allows the user to browse upcoming events, check availability of seats and
+ticket prices, and once the sales window starts, the users will be able to book tickets and
+make payments for the same.
+Booking tickets is a core functionality of the EMTS.
+4.2.2 Action and Result
+Users can scroll through a list of upcoming events, search and filter them on the basis of
+date, price, name, venue. They will click the event they are interested in and be directed
+to a screen showing all the details about the event, like description, name, time, venue,
+cancellation policy.
+If the sales window is open, they may press the buy ticket button which opens a
+menu showing the available ticket types with their corresponding prices. They will enter
+the quantity of tickets that they wish to buy. A final cost of the tickets they have
+selected will be displayed. They will confirm their selection and then proceed to fill out
+a form with their email address, name and phone number. After confirming their wish to
+purchase the tickets, a payment gateway will open. Once the payment has been made,
+the database will be updated with the ticket information, and a confirmation email will
+be sent to the user with the ticket.
+4.2.3 Functional Requirements
+(a) The system shall display on a screen all upcoming events.
+(b) The system shall allow the user to search, filter and sort through the events.
+(c) The system shall display detailed event information when the user clicks on an
+event.
+(d) The system shall display a buy ticket option if the sales window of the event is
+open.
+(e) The system shall display all available ticket categories and their prices when the
+user clicks the buy ticket button.
+(f) The system shall allow the user to specify the number of tickets that they wish to
+purchase and show total cost of the tickets.
+15
+
+--- PAGE 16 ---
+(g) The system shall not allow the user to enter a quantity of tickets that is greater
+than the quantity that is unsold.
+(h) The system shall allow the user to confirm their wish to purchase tickets and then
+redirect them to a payment gateway.
+(i) The system shall confirm successful payment before generating tickets.
+(j) The system shall update the database with the record of the ticket sale.
+(k) The system shall send an email to the customer with a confirmation and attach
+the QR code/Bar code of the ticket.
+(l) The system shall not generate tickets if payment fails.
+4.3 Cancel Ticket
+4.3.1 Description
+Cancellation of the tickets is allowed subject to the cancellation policy specified by the
+organizer of the event.
+This is not a core functionality to allow the EMTS to function, but is important for
+user satisfaction and peace of mind.
+4.3.2 Action and Result
+The user may see a list of their purchased tickets in a separate section of the EMTS.
+Wherein they may click on a ticket and choose to cancel it subject to the cancellation
+policy specified by the organizer at the time of purchase. The system will then set
+the status of the ticket in the database as cancelled, and notify the user about the
+cancellation via email.
+4.3.3 Functional Requirements
+(a) The system shall allow the user to see a list of their purchase history in a separate
+section of their GUI.
+(b) The system shall allow the user to click at any item in this list and see the details
+of the ticket purchase like quantity, cost, ticket category in a popup window.
+(c) The system shall also display a cancel ticket button in the same window.
+(d) The system shall allow the user to click this button and will prompt the user to
+confirm their cancellation once again. The system shall also notify the user of the
+refund policy at this moment.
+(e) The system shall notify the user of the cancellation via email and their refund
+status if applicable.
+16
+
+--- PAGE 17 ---
+(f) The system shall automatically initiate the refund according to the refund policy
+if applicable.
+4.4 Non-Ordinary Ticket Booking (bulk, VIP, complementary)
+4.4.1 Description
+The system will allow the organizer of the event to reserve tickets for VIP, Sponsors and
+Staff via a similar ticket booking UI as described earlier. The system will also allow the
+organizer to bulk book tickets on behalf of organizations.
+Bulk booking is a rarely used feature and is not a core functionality of the EMTS.
+4.4.2 Action and Result
+The organizer of the event will be able to see all events that they have organized in
+a separate section of the UI. Upon clicking the event they will be able to see options
+to manually create reserved ticket categories like staff, VIP, complementary etc. and
+reserve a desired number of tickets for their own usage.
+If the organizer has been contacted by an organization for bulk ticket bookings, they
+may also manually book tickets in bulk on behalf of the organization at their agreed
+ticket price. The reservation is confirmed once the organization makes the payment
+successfully. In either case, the database of tickets gets updated accordingly and the
+ticket holders are sent an email notification of their reservation with the ticket QR/bar
+code.
+4.4.3 Functional Requirements
+(a) The system shall allow the organiser to view all their organised events in a separate
+section of the UI.
+(b) The system shall allow the organiser to click at any event within the list and will
+then show a new window where details of the event are shown.
+(c) The system will show options on the screen to enable the organizer to make bulk
+bookings or create special tickets for internal usage, VIPs or complementary offers.
+(d) The system shall accept input from the organizer about the quantity and type of
+ticket to be allocated in the case of bulk bookings. The organizer will also be asked
+to provide the email of the organization that is the recipient of these tickets.
+(e) The system shall validate that the number and type of tickets selected do not
+exceed the remaining capacity of the venue.
+(f) The system shall send a payment gateway link to the organization via email; only
+upon successful completion of the payment will they receive their tickets via email.
+17
+
+--- PAGE 18 ---
+(g) The system shall enable the organizer to create and select from existing special
+ticket classes for internal usage (VIP, Staff, Complementary etc.).
+(h) The system shall enable the organizer to manually create a desired number of
+tickets of the chosen special category for their internal usage.
+(i) The system shall send email notification along with the special tickets (QR/Bar
+code) to the organizer’s email address.
+(j) The system shall, in both cases (bulk booking and special tickets), update the
+database of tickets.
+4.5 Entry Validation and Attendance
+4.5.1 Description
+The entry of guests will be controlled and tickets will be verified by the scanning of the
+unique QR/Bar code of each ticket.
+Validation of tickets and marking attendance is a core functionality of the EMTS
+without which the system cannot be effectively automated.
+4.5.2 Action and Result
+At the entry gates, cameras/scanners/mobile phones that are connected to the system
+will scan the guests’ tickets. The devices will communicate with the EMTS and mark
+them as present in the database.
+4.5.3 Functional Requirements
+(a) The system shall scan the QR/Bar code of the tickets and query the database
+about the ticket status.
+(b) The system shall validate that the ticket is indeed genuine and has not been can-
+celled or already marked as present.
+(c) The system shall allow entry only on valid tickets and show an alert message to
+confirm the entry and credentials of the guest.
+(d) The system shall update the database and mark the ticket status as “present”,
+preventing reusage of any tickets for entry.
+(e) The system shall display an alert if the ticket is not genuine/already marked pre-
+sent/cancelled so that the on-ground staff may take appropriate action.
+(f) The system shall also allow the staff to simply validate tickets/check status of any
+ticket regardless of status. All details regarding the ticket will be displayed to the
+staff. The ticket status will not be changed in this case.
+18
+
+--- PAGE 19 ---
+4.6 Reports
+4.6.1 Description
+Reports containing data about ticket sales, revenue per event and per ticket category,
+seat occupancy rates and no show statistics, sales agent performance (for events with
+offline sales agents) should be generated by the system. The system should also allow
+the organizer to track budget vs expenses of each event covering costs such as artist fees,
+venue rent, equipment and logistics.
+This is an added convenience for the organizers, not critical for the functionality of
+the EMTS.
+4.6.2 Action and Result
+Within the same screen where the organizer can see all their events, the organizer will
+also be able to see statistics of each event. A button labeled statistics will cause a
+separate window to pop up where the statistics, reports etc. are displayed. The system
+shall query the tickets database and events database and calculate the abovementioned
+statistics and display them.
+4.6.3 Functional Requirements
+(a) The system shall display a see statistics button in the same screen that is used for
+non-ordinary ticket creation.
+(b) The system shall open a separate window where the reports and other statistics of
+the event are displayed for the organizer.
+(c) The system shall automatically calculate statistics regarding ticket sales, total
+revenue of the event, revenue per ticket category and sales agent performance and
+display them for the organizer.
+(d) The system shall also show a live track of attendance at each event and keep a
+record of no-show statistics/occupancy rates for previous events.
+(e) The system shall also enable the organizer to input their expenditure of the event,
+split across buckets that they may specify.
+(f) The system shall enable the organizer to compare the expenditure of each event
+with the revenue generated.
+(g) The system shall optionally also show a cumulative budget and expense tracker
+for all past events.
+19
+
+--- PAGE 20 ---
+5 Other Non-functional Requirements
+5.1 Performance Requirements
+(a) The system shall be able to handle multiple users simultaneously without degra-
+dation of service.
+(b) The system shall complete 100% of transactions in under 5 seconds.
+(c) The system shall process all information and updates with minimal latency to
+ensure real-time data accuracy across all user interfaces.
+5.2 Safety Requirements
+5.2.1 System Reliability
+(a) The system shall remain operational during peak booking periods and high-traffic
+events.
+(b) The system shall provide graceful error handling in case of server or network failure
+to prevent data loss.
+(c) Ticket confirmation shall occur only after successful payment verification.
+5.2.2 Data Backup and Recovery
+(a) Automatic daily backups of all databases shall be maintained.
+(b) The system shall support full recovery within a defined window of 2 hours following
+a critical failure.
+(c) Backup copies shall be stored securely in multiple geographical locations.
+5.2.3 Overbooking and Capacity Control
+(a) The system shall prevent ticket sales beyond the venue’s defined capacity.
+(b) Real-time seat availability shall be updated immediately after each successful book-
+ing or cancellation.
+(c) Entry validation systems shall block further scans once the maximum capacity of
+the venue is reached.
+20
+
+--- PAGE 21 ---
+5.2.4 Transaction Safety
+(a) Duplicate payment detection and prevention mechanisms shall be implemented at
+the application level.
+(b) Refund processing shall be verified through a multi-step check before execution.
+(c) Detailed transaction logs shall be maintained for audit and reconciliation purposes.
+5.2.5 Operational Safety at Venue
+(a) Each ticket shall be validated only once at the point of entry.
+(b) The system shall detect and prevent the use of duplicate or previously scanned
+tickets.
+(c) Real-time attendance data at the venue shall be synchronized with the central
+server instantaneously.
+5.2.6 Logging and Monitoring
+(a) All critical system actions, including bookings, cancellations, refunds, and admin-
+istrative changes, shall be logged.
+(b) Monitoring systems shall be maintained to detect and alert on abnormal or suspi-
+cious system behavior.
+5.3 Security Requirements
+5.3.1 Authentication
+(a) Users shall log in using secure credentials via an encrypted authentication service.
+(b) Admins and organizers shall be required to use Two-Factor Authentication (2FA)
+for all sessions.
+(c) Passwords shall follow strong complexity rules, including requirements for length
+and character variety.
+5.3.2 Authorization and Access Control
+(a) Role-Based Access Control (RBAC) shall be implemented for Admin, Organizer,
+Staff, and Customer roles.
+(b) Users shall only access features and data relevant to their specific authorized role.
+(c) All unauthorized access attempts shall be denied and logged for security review.
+21
+
+--- PAGE 22 ---
+5.3.3 Data Confidentiality
+(a) Personal user data shall be encrypted during transmission using HTTPS/SSL pro-
+tocols.
+(b) Sensitive data, including personally identifiable information (PII), shall be en-
+crypted at rest in the database.
+(c) Passwords shall be stored using modern, salted hashing algorithms.
+5.3.4 Payment Security
+(a) The system shall integrate exclusively with certified, PCI-DSS compliant secure
+payment gateways.
+(b) Credit and debit card details shall not be stored within the system’s local database.
+(c) All payment communications shall utilize industry-standard secure encryption pro-
+tocols.
+5.3.5 Ticket and Fraud Protection
+(a) Each ticket shall be generated with a unique, cryptographically secure QR/Bar-
+code.
+(b) QR codes shall be invalidated immediately after the first successful entry scan.
+(c) The system shall employ algorithms to detect forged ticket patterns or duplicate
+ticket IDs.
+5.4 Software Quality Attributes
+5.4.1 Reliability
+(a) The system shall operate without crashes or incorrect logical outputs during normal
+and peak usage.
+(b) Core actions—booking, cancellation, and payment—must be handled atomically
+to ensure data integrity.
+(c) Seat availability and ticket counts shall remain synchronized to prevent overbook-
+ing conflicts.
+(d) The system shall feature self-recovery capabilities for minor transient errors with-
+out impacting user data.
+(e) Error messages displayed to users shall be clear, non-technical, and actionable.
+22
+
+--- PAGE 23 ---
+5.5 Project Documentation
+5.5.1 Maintainer Documentation
+(a) Comprehensive technical documentation shall be provided for developers and sys-
+tem maintainers.
+(b) This documentation shall describe the system architecture, component interac-
+tions, and configuration details for efficient maintenance.
+5.5.2 User Documentation
+(a) A comprehensive User Manual shall be provided to guide users through all system
+operations.
+(b) The manual shall include step-by-step instructions written in accessible language
+for all primary functionalities.
+(c) Documentation shall be structured to allow first-time users to operate the system
+without external assistance.
+23
+

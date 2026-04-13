@@ -1,0 +1,38 @@
+[
+  {
+    "notificationId": "ntf-001",
+    "userId": "usr-cus-001",
+    "notificationType": "PAYMENT",
+    "title": "Payment confirmed",
+    "message": "Your payment for EMTS Leadership Summit 2026 has been recorded successfully.",
+    "isRead": false,
+    "createdAt": "2026-03-20T09:47:00.000Z"
+  },
+  {
+    "notificationId": "ntf-002",
+    "userId": "usr-cus-001",
+    "notificationType": "EVENT",
+    "title": "Event schedule published",
+    "message": "Keynote stage timings and workshop rooms are now available in your booking detail.",
+    "isRead": true,
+    "createdAt": "2026-03-24T12:15:00.000Z"
+  },
+  {
+    "notificationId": "ntf-003",
+    "userId": "usr-org-001",
+    "notificationType": "SYSTEM",
+    "title": "Occupancy trend alert",
+    "message": "Midnight Soundscape crossed 65 percent occupancy. Consider releasing reserved inventory.",
+    "isRead": false,
+    "createdAt": "2026-03-25T06:10:00.000Z"
+  },
+  {
+    "notificationId": "ntf-004",
+    "userId": "usr-adm-001",
+    "notificationType": "SECURITY",
+    "title": "Admin login challenge completed",
+    "message": "A successful two-step verification was recorded from Bengaluru.",
+    "isRead": false,
+    "createdAt": "2026-03-25T06:41:00.000Z"
+  }
+]

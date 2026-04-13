@@ -1,0 +1,26 @@
+[
+  {
+    "expenseId": "exp-001",
+    "eventId": "evt-001",
+    "expenseTitle": "Venue block booking",
+    "expenseCategory": "VENUE",
+    "amount": 380000,
+    "incurredAt": "2026-02-18T10:00:00.000Z"
+  },
+  {
+    "expenseId": "exp-002",
+    "eventId": "evt-001",
+    "expenseTitle": "Launch media buy",
+    "expenseCategory": "MARKETING",
+    "amount": 145000,
+    "incurredAt": "2026-03-02T11:00:00.000Z"
+  },
+  {
+    "expenseId": "exp-003",
+    "eventId": "evt-001",
+    "expenseTitle": "On-ground operations",
+    "expenseCategory": "OPERATIONS",
+    "amount": 92000,
+    "incurredAt": "2026-03-12T08:30:00.000Z"
+  }
+]
