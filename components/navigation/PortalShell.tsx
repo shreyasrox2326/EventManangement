@@ -63,7 +63,7 @@ export function PortalShell({
   );
 
   const mobileNavItems = useMemo(
-    () => [...navItems.slice(0, 3), { label: "You", href: "#you" }],
+    () => [...navItems, { label: "You", href: "#you" }],
     [navItems]
   );
 
@@ -142,7 +142,10 @@ export function PortalShell({
           {children}
         </div>
       </main>
-      <div className="mobile-bottom-nav">
+      <div
+        className="mobile-bottom-nav"
+        style={{ gridTemplateColumns: `repeat(${mobileNavItems.length}, minmax(72px, 1fr))` }}
+      >
         {mobileNavItems.map((item) => {
           const isYou = item.href === "#you";
           const isActive = !isYou && (pathname === item.href || pathname.startsWith(`${item.href}/`));
