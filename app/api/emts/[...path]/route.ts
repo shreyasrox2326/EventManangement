@@ -37,6 +37,12 @@ async function proxyRequest(
     cache: "no-store"
   });
 
+  if ([204, 205, 304].includes(response.status)) {
+    return new NextResponse(null, {
+      status: response.status
+    });
+  }
+
   const body = await response.text();
 
   return new NextResponse(body, {
