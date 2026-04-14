@@ -12,15 +12,9 @@ import { OrganizerReportData } from "@/types/contracts";
 import { emtsApi } from "@/services/live-api";
 import { useAsyncResource } from "@/services/use-async-resource";
 import { formatCurrency, formatDateTime, formatPercentage } from "@/utils/format";
+import { isInternalUseCategoryName } from "@/utils/ticketing";
 
 const chartWindowSequence = [5, 10, "all"] as const;
-
-const chartPalette = {
-  sold: "var(--accent)",
-  unsold: "rgba(148, 163, 184, 0.24)",
-  attended: "var(--success)",
-  notAttended: "rgba(245, 158, 11, 0.22)"
-} as const;
 
 const downloadFile = (filename: string, contents: string, mimeType: string) => {
   const blob = new Blob([contents], { type: mimeType });
@@ -75,6 +69,7 @@ export function ReportsDashboard() {
   const [isSavingExpenses, setIsSavingExpenses] = useState(false);
   const [chartWindow, setChartWindow] = useState<(typeof chartWindowSequence)[number]>(5);
   const [selectedAttendanceScope, setSelectedAttendanceScope] = useState("all");
+  const [excludeInternalUsage, setExcludeInternalUsage] = useState(true);
   const [expenseLabel, setExpenseLabel] = useState("");
   const [expenseAmount, setExpenseAmount] = useState("");
   const { data: reportsData, isLoading, error } = useAsyncResource(() => emtsApi.getReportsByOrganizer(organizerId), [organizerId, refreshKey]);
@@ -95,14 +90,41 @@ export function ReportsDashboard() {
 
   const selectedReport = reports.find((report) => report.reportId === selectedReportId) ?? reports[0] ?? null;
   const selectedData = selectedReport?.parsedData ?? null;
+  const visibleCategoriesForEvent = (event: OrganizerReportData["events"][number]) =>
+    excludeInternalUsage
+      ? event.categories.filter((category) => !isInternalUseCategoryName(category.name))
+      : event.categories;
   const filteredEvents = useMemo(() => {
     if (!selectedData) {
       return [];
     }
 
-    const sorted = [...selectedData.events].sort((left, right) => new Date(right.startDateTime).getTime() - new Date(left.startDateTime).getTime());
+    const sorted = [...selectedData.events]
+      .map((event) => {
+        const visibleCategories = visibleCategoriesForEvent(event);
+        const visibleCapacity = visibleCategories.reduce((sum, category) => sum + category.capacity, 0);
+        const visibleSold = visibleCategories.reduce((sum, category) => sum + category.soldQuantity, 0);
+        const visibleUsed = visibleCategories.reduce((sum, category) => sum + category.usedTickets, 0);
+        const visibleCancelled = visibleCategories.reduce((sum, category) => sum + category.cancelledTickets, 0);
+        const visibleRevenue = visibleCategories.reduce((sum, category) => sum + category.revenue, 0);
+
+        return {
+          ...event,
+          seatCapacity: visibleCapacity,
+          ticketsSold: visibleSold,
+          checkedInCount: visibleUsed,
+          cancelledTickets: visibleCancelled,
+          grossRevenue: visibleRevenue,
+          netRevenue: visibleRevenue - (event.totalExpenses ?? 0),
+          occupancyPercentage: visibleCapacity > 0 ? (visibleSold / visibleCapacity) * 100 : 0,
+          noShowPercentage: visibleSold > 0 ? Math.max(((visibleSold - visibleUsed - visibleCancelled) / visibleSold) * 100, 0) : 0,
+          categories: visibleCategories
+        };
+      })
+      .sort((left, right) => new Date(right.startDateTime).getTime() - new Date(left.startDateTime).getTime());
+
     return selectedEventFilter === "all" ? sorted : sorted.filter((event) => event.eventId === selectedEventFilter);
-  }, [selectedData, selectedEventFilter]);
+  }, [excludeInternalUsage, selectedData, selectedEventFilter]);
 
   const chartEvents =
     chartWindow === "all"
@@ -167,16 +189,6 @@ export function ReportsDashboard() {
     };
   }, [filteredEvents, selectedAttendanceScope, selectedExpenseEvent]);
 
-  const attendanceCapacityData = [
-    { name: "Sold seats", value: attendanceBreakdown.sold, color: chartPalette.sold },
-    { name: "Unsold seats", value: Math.max(attendanceBreakdown.capacity - attendanceBreakdown.sold, 0), color: chartPalette.unsold }
-  ].filter((entry) => entry.value > 0);
-
-  const attendanceSoldData = [
-    { name: "Attended", value: attendanceBreakdown.attended, color: chartPalette.attended },
-    { name: "Sold, not attended", value: Math.max(attendanceBreakdown.sold - attendanceBreakdown.attended, 0), color: chartPalette.notAttended }
-  ].filter((entry) => entry.value > 0);
-
   const handleGenerate = async () => {
     setIsGenerating(true);
     setMessage("");
@@ -227,7 +239,7 @@ export function ReportsDashboard() {
   const exportEventsCsv = () => {
     if (!selectedData || !selectedReport) return;
     const csv = toCsv(
-      selectedData.events.map((event) => ({
+      filteredEvents.map((event) => ({
         event_name: event.title,
         event_id: event.eventId,
         date: formatDateTime(event.startDateTime),
@@ -253,7 +265,7 @@ export function ReportsDashboard() {
   const exportCategoriesCsv = () => {
     if (!selectedData || !selectedReport) return;
     const csv = toCsv(
-      selectedData.events.flatMap((event) =>
+      filteredEvents.flatMap((event) =>
         event.categories.map((category) => ({
         event_name: event.title,
         event_id: event.eventId,
@@ -488,11 +500,15 @@ export function ReportsDashboard() {
                 <select className="select" value={selectedEventFilter} onChange={(event) => setSelectedEventFilter(event.target.value)} style={{ minWidth: 240 }}>
                   <option value="all">All events</option>
                   {selectedData.events.map((event) => (
-                    <option key={event.eventId} value={event.eventId}>
+                  <option key={event.eventId} value={event.eventId}>
                       {event.title}
                     </option>
                   ))}
                 </select>
+                <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <input type="checkbox" checked={excludeInternalUsage} onChange={(event) => setExcludeInternalUsage(event.target.checked)} />
+                  <span className="muted">Exclude internal/staff</span>
+                </label>
                 <Button type="button" variant="secondary" onClick={cycleChartWindow}>
                   Charts: {chartWindow === "all" ? "All" : `Last ${chartWindow}`}
                 </Button>
@@ -506,7 +522,7 @@ export function ReportsDashboard() {
               <h3 style={{ marginBottom: 6 }}>Revenue by event</h3>
               <RevenueAreaChart
                 data={chartEvents.map((event) => ({
-                  label: event.title.length > 12 ? `${event.title.slice(0, 12)}…` : event.title,
+                  label: event.title.length > 12 ? `${event.title.slice(0, 12)}...` : event.title,
                   fullLabel: event.title,
                   value: event.grossRevenue
                 }))}
@@ -517,7 +533,7 @@ export function ReportsDashboard() {
               <h3 style={{ marginBottom: 6 }}>Occupancy by event</h3>
               <OccupancyBarChart
                 data={chartEvents.map((event) => ({
-                  label: event.title.length > 12 ? `${event.title.slice(0, 12)}…` : event.title,
+                  label: event.title.length > 12 ? `${event.title.slice(0, 12)}...` : event.title,
                   fullLabel: event.title,
                   value: Number(event.occupancyPercentage.toFixed(1))
                 }))}
@@ -545,8 +561,9 @@ export function ReportsDashboard() {
                 </select>
               </div>
               <AttendanceDonutChart
-                capacityData={attendanceCapacityData}
-                soldData={attendanceSoldData}
+                capacity={attendanceBreakdown.capacity}
+                sold={attendanceBreakdown.sold}
+                attended={attendanceBreakdown.attended}
                 centerLabel="Attended / Capacity"
                 centerValue={`${attendanceBreakdown.attended} / ${attendanceBreakdown.capacity}`}
               />

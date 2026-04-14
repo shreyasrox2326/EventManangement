@@ -16,15 +16,31 @@ export function OccupancyBarChart({
           <YAxis stroke="var(--text-soft)" domain={[0, 100]} ticks={[0, 25, 50, 75, 100]} width={36} />
           <Tooltip
             cursor={{ fill: "rgba(148, 163, 184, 0.08)" }}
-            contentStyle={{
-              background: "var(--surface-elevated)",
-              border: "1px solid var(--line)",
-              borderRadius: 14,
-              color: "var(--text)"
+            content={({ active, payload }) => {
+              if (!active || !payload?.length) {
+                return null;
+              }
+
+              const entry = payload[0];
+              const label = String(entry.payload?.fullLabel ?? entry.payload?.label ?? "");
+              const value = Number(entry.value ?? 0);
+
+              return (
+                <div
+                  style={{
+                    backgroundColor: "var(--surface-elevated)",
+                    color: "var(--text)",
+                    border: "1px solid var(--line)",
+                    borderRadius: 14,
+                    padding: "10px 12px",
+                    boxShadow: "0 18px 40px rgba(0, 0, 0, 0.25)"
+                  }}
+                >
+                  <div style={{ fontWeight: 700, color: "var(--text)" }}>{label}</div>
+                  <div style={{ marginTop: 4, color: "var(--text-soft)" }}>{value}% occupancy</div>
+                </div>
+              );
             }}
-            labelStyle={{ color: "var(--text)", fontWeight: 700 }}
-            formatter={(value: number) => [`${value}%`, "Occupancy"]}
-            labelFormatter={(_, payload) => payload?.[0]?.payload?.fullLabel ?? _}
           />
           <Bar dataKey="value" radius={[12, 12, 0, 0]} fill="var(--accent)" />
         </BarChart>

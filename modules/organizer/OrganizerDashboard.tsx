@@ -12,6 +12,7 @@ import { StatCard } from "@/components/ui/StatCard";
 import { emtsApi } from "@/services/live-api";
 import { useAsyncResource } from "@/services/use-async-resource";
 import { formatCurrency } from "@/utils/format";
+import { isInternalUseCategoryName } from "@/utils/ticketing";
 import { useState } from "react";
 
 export function OrganizerDashboard() {
@@ -36,15 +37,36 @@ export function OrganizerDashboard() {
   const reports = reportsData ?? [];
   const corporateRequests = corporateRequestsData ?? [];
   const corporateProfiles = corporateProfilesData ?? [];
-  const publishedEvents = organizerEvents.filter((event) => event.status.toUpperCase() === "PUBLISHED");
+  const latestFiveEvents = [...organizerEvents]
+    .sort((left, right) => new Date(right.startDateTime).getTime() - new Date(left.startDateTime).getTime())
+    .slice(0, 5);
+  const publishedEvents = latestFiveEvents.filter((event) => event.status.toUpperCase() === "PUBLISHED");
   const organizerBookings = bookings.filter((booking) => organizerEvents.some((event) => event.eventId === booking.eventId));
   const organizerPayments = payments.filter((payment) => organizerBookings.some((booking) => booking.bookingId === payment.bookingId));
-  const organizerTickets = tickets.filter((ticket) => organizerEvents.some((event) => event.eventId === ticket.eventId));
+  const organizerTickets = tickets.filter(
+    (ticket) =>
+      latestFiveEvents.some((event) => event.eventId === ticket.eventId) &&
+      !isInternalUseCategoryName(ticket.seatLabel)
+  );
   const grossRevenue = organizerPayments.reduce((sum, payment) => sum + payment.amountPaid, 0);
   const refundedRevenue = organizerPayments.filter((payment) => payment.paymentStatus.startsWith("refunded")).reduce((sum, payment) => sum + payment.amountPaid, 0);
   const checkedInCount = organizerTickets.filter((ticket) => ticket.ticketStatus === "USED").length;
   const activeTickets = organizerTickets.filter((ticket) => ticket.ticketStatus === "ACTIVE").length;
-  const averageOccupancy = publishedEvents.length > 0 ? publishedEvents.reduce((sum, event) => sum + event.occupancyPercentage, 0) / publishedEvents.length : 0;
+  const averageOccupancy =
+    publishedEvents.length > 0
+      ? publishedEvents.reduce((sum, event) => {
+          const publicCategories = event.ticketCategories.filter((category) => !isInternalUseCategoryName(category.displayName));
+          const publicCapacity = publicCategories.reduce((categorySum, category) => categorySum + category.capacity, 0);
+          const publicSold = publicCategories.reduce((categorySum, category) => categorySum + (category.capacity - category.availableQuantity), 0);
+          return sum + (publicCapacity > 0 ? (publicSold / publicCapacity) * 100 : 0);
+        }, 0) / publishedEvents.length
+      : 0;
+  const publicCapacityAcrossDashboard = publishedEvents.reduce(
+    (sum, event) =>
+      sum + event.ticketCategories.filter((category) => !isInternalUseCategoryName(category.displayName)).reduce((categorySum, category) => categorySum + category.capacity, 0),
+    0
+  );
+  const publicSoldAcrossDashboard = organizerTickets.filter((ticket) => ticket.ticketStatus !== "CANCELLED").length;
   const latestReport = reports[0]?.parsedData ?? null;
   const visibleCorporateRequests = corporateRequests.filter((request) => {
     if (request.status === "submitted") return true;
@@ -124,8 +146,8 @@ export function OrganizerDashboard() {
           <div className="eyebrow">Revenue Trend</div>
           <h3 style={{ marginBottom: 6 }}>Revenue by event</h3>
           <RevenueAreaChart
-            data={organizerEvents.map((event) => ({
-              label: event.title.length > 12 ? `${event.title.slice(0, 12)}…` : event.title,
+            data={latestFiveEvents.map((event) => ({
+              label: event.title.length > 12 ? `${event.title.slice(0, 12)}...` : event.title,
               fullLabel: event.title,
               value: organizerPayments
                 .filter((payment) => organizerBookings.some((booking) => booking.bookingId === payment.bookingId && booking.eventId === event.eventId))
@@ -137,28 +159,11 @@ export function OrganizerDashboard() {
           <div className="eyebrow">Attendance Mix</div>
           <h3 style={{ marginBottom: 6 }}>Capacity, sold, and attended</h3>
           <AttendanceDonutChart
-            capacityData={[
-              { name: "Sold seats", value: organizerTickets.filter((ticket) => ticket.ticketStatus !== "CANCELLED").length, color: "var(--accent)" },
-              {
-                name: "Unsold seats",
-                value: Math.max(
-                  organizerEvents.reduce((sum, event) => sum + event.seatCapacity, 0) -
-                    organizerTickets.filter((ticket) => ticket.ticketStatus !== "CANCELLED").length,
-                  0
-                ),
-                color: "rgba(148, 163, 184, 0.24)"
-              }
-            ].filter((entry) => entry.value > 0)}
-            soldData={[
-              { name: "Attended", value: checkedInCount, color: "var(--success)" },
-              {
-                name: "Sold, not attended",
-                value: Math.max(organizerTickets.filter((ticket) => ticket.ticketStatus !== "CANCELLED").length - checkedInCount, 0),
-                color: "rgba(245, 158, 11, 0.22)"
-              }
-            ].filter((entry) => entry.value > 0)}
+            capacity={publicCapacityAcrossDashboard}
+            sold={publicSoldAcrossDashboard}
+            attended={checkedInCount}
             centerLabel="Attended / Capacity"
-            centerValue={`${checkedInCount} / ${organizerEvents.reduce((sum, event) => sum + event.seatCapacity, 0)}`}
+            centerValue={`${checkedInCount} / ${publicCapacityAcrossDashboard}`}
           />
         </Card>
       </div>
@@ -170,9 +175,14 @@ export function OrganizerDashboard() {
           <OccupancyBarChart
             data={publishedEvents
               .map((event) => ({
-                label: event.title.length > 12 ? `${event.title.slice(0, 12)}…` : event.title,
+                label: event.title.length > 12 ? `${event.title.slice(0, 12)}...` : event.title,
                 fullLabel: event.title,
-                value: Number(event.occupancyPercentage.toFixed(1))
+                value: (() => {
+                  const publicCategories = event.ticketCategories.filter((category) => !isInternalUseCategoryName(category.displayName));
+                  const publicCapacity = publicCategories.reduce((sum, category) => sum + category.capacity, 0);
+                  const publicSold = publicCategories.reduce((sum, category) => sum + (category.capacity - category.availableQuantity), 0);
+                  return Number((publicCapacity > 0 ? (publicSold / publicCapacity) * 100 : 0).toFixed(1));
+                })()
               }))}
           />
         </Card>

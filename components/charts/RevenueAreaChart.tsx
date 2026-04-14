@@ -24,15 +24,31 @@ export function RevenueAreaChart({
           <YAxis stroke="var(--text-soft)" />
           <Tooltip
             cursor={{ stroke: "rgba(148, 163, 184, 0.25)", strokeWidth: 1.5 }}
-            contentStyle={{
-              background: "var(--surface-elevated)",
-              border: "1px solid var(--line)",
-              borderRadius: 14,
-              color: "var(--text)"
+            content={({ active, payload }) => {
+              if (!active || !payload?.length) {
+                return null;
+              }
+
+              const entry = payload[0];
+              const label = String(entry.payload?.fullLabel ?? entry.payload?.label ?? "");
+              const value = Number(entry.value ?? 0);
+
+              return (
+                <div
+                  style={{
+                    backgroundColor: "var(--surface-elevated)",
+                    color: "var(--text)",
+                    border: "1px solid var(--line)",
+                    borderRadius: 14,
+                    padding: "10px 12px",
+                    boxShadow: "0 18px 40px rgba(0, 0, 0, 0.25)"
+                  }}
+                >
+                  <div style={{ fontWeight: 700, color: "var(--text)" }}>{label}</div>
+                  <div style={{ marginTop: 4, color: "var(--text-soft)" }}>₹{value.toLocaleString("en-IN")}</div>
+                </div>
+              );
             }}
-            labelStyle={{ color: "var(--text)", fontWeight: 700 }}
-            formatter={(value: number) => [`₹${value.toLocaleString("en-IN")}`, "Revenue"]}
-            labelFormatter={(_, payload) => payload?.[0]?.payload?.fullLabel ?? _}
           />
           <Area type="monotone" dataKey={dataKey} stroke="var(--accent)" fill="url(#revenueFill)" strokeWidth={2.5} />
         </AreaChart>
