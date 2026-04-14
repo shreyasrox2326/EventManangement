@@ -22,15 +22,6 @@ const statusDot = (ticketStatus: Ticket["ticketStatus"]) =>
       ? "var(--danger)"
       : "var(--text-soft)";
 
-const statusLabel = (ticketStatus: Ticket["ticketStatus"]) =>
-  ticketStatus === "ACTIVE"
-    ? "Unused"
-    : ticketStatus === "USED"
-      ? "Used"
-      : ticketStatus === "CANCELLED"
-        ? "Cancelled"
-        : "Invalid";
-
 export function GroupedTicketsView({
   title,
   eyebrow,
@@ -131,10 +122,7 @@ export function GroupedTicketsView({
                         <td className="mono">{ticket.bookingId}</td>
                         <td>{ticket.seatLabel}</td>
                         <td>
-                          <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-                            <span style={{ width: 10, height: 10, borderRadius: "50%", background: statusDot(ticket.ticketStatus), display: "inline-block" }} />
-                            <span>{statusLabel(ticket.ticketStatus)}</span>
-                          </span>
+                          <span style={{ width: 10, height: 10, borderRadius: "50%", background: statusDot(ticket.ticketStatus), display: "inline-block" }} />
                         </td>
                       </tr>
                     ))}

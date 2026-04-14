@@ -261,7 +261,10 @@ textarea {
   color: var(--text-soft);
   font-size: 0.75rem;
   min-width: 72px;
-  white-space: nowrap;
+  white-space: normal;
+  text-align: center;
+  line-height: 1.15;
+  word-break: break-word;
 }
 
 .mobile-tab-active {

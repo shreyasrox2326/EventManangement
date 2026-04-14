@@ -13,8 +13,6 @@ import { formatCurrency, formatDateTime } from "@/utils/format";
 import { buildTicketQrPayload, downloadTicketQrZip } from "@/utils/ticketing";
 
 const statusDot = (status: string) => (status === "ACTIVE" ? "var(--success)" : status === "USED" ? "var(--danger)" : "var(--text-soft)");
-const statusLabel = (status: string) => (status === "ACTIVE" ? "Unused" : status === "USED" ? "Used" : "Cancelled");
-
 export function BookingDetailPage() {
   const params = useParams<{ bookingId: string }>();
   const router = useRouter();
@@ -249,16 +247,13 @@ export function BookingDetailPage() {
             <tbody>
               {tickets.map((ticket) => (
                 <tr key={ticket.ticketId}>
-                  <td className="mono">{ticket.ticketId}</td>
-                  <td>{ticket.seatLabel}</td>
-                  <td>
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-                      <span style={{ width: 10, height: 10, borderRadius: "50%", background: statusDot(ticket.ticketStatus), display: "inline-block" }} />
-                      <span>{statusLabel(ticket.ticketStatus)}</span>
-                    </span>
-                  </td>
-                </tr>
-              ))}
+                <td className="mono">{ticket.ticketId}</td>
+                <td>{ticket.seatLabel}</td>
+                <td>
+                  <span style={{ width: 10, height: 10, borderRadius: "50%", background: statusDot(ticket.ticketStatus), display: "inline-block" }} />
+                </td>
+              </tr>
+            ))}
             </tbody>
           </table>
         </Card>
