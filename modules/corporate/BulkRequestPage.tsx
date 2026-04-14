@@ -12,26 +12,44 @@ import { getEventSalesStatus, getLowestAvailablePrice, getSellableCategories } f
 
 export function BulkRequestPage() {
   const [searchTerm, setSearchTerm] = useState("");
+  const [eventType, setEventType] = useState("ALL");
+  const [eventWindow, setEventWindow] = useState("UPCOMING");
+  const [sortBy, setSortBy] = useState("date");
   const { data, isLoading, error } = useAsyncResource(() => emtsApi.getPublishedEvents(), []);
   const { data: organizerProfilesData } = useAsyncResource(() => emtsApi.getOrganizerProfiles(), []);
   const events = data ?? [];
   const organizerProfiles = organizerProfilesData ?? [];
 
   const filteredEvents = useMemo(
-    () =>
-      events.filter((event) => {
+    () => {
+      const next = events.filter((event) => {
+        const now = Date.now();
+        const start = new Date(event.startDateTime).getTime();
+        const end = new Date(event.endDateTime).getTime();
         const query = searchTerm.trim().toLowerCase();
-        if (!query) {
-          return true;
-        }
-
-        return (
+        const matchesSearch =
+          !query ||
           event.title.toLowerCase().includes(query) ||
           event.venueName.toLowerCase().includes(query) ||
-          event.cityName.toLowerCase().includes(query)
-        );
-      }),
-    [events, searchTerm]
+          event.cityName.toLowerCase().includes(query);
+        const matchesType = eventType === "ALL" || event.eventType === eventType;
+        const matchesWindow =
+          eventWindow === "UPCOMING"
+            ? start > now
+            : eventWindow === "ONGOING"
+              ? start <= now && end > now
+              : end <= now;
+        return matchesSearch && matchesType && matchesWindow;
+      });
+
+      return next.sort((left, right) => {
+        if (sortBy === "price") {
+          return (getLowestAvailablePrice(left) ?? Number.MAX_SAFE_INTEGER) - (getLowestAvailablePrice(right) ?? Number.MAX_SAFE_INTEGER);
+        }
+        return new Date(left.startDateTime).getTime() - new Date(right.startDateTime).getTime();
+      });
+    },
+    [eventType, eventWindow, events, searchTerm, sortBy]
   );
 
   return (
@@ -39,19 +57,46 @@ export function BulkRequestPage() {
       <Card>
         <div className="eyebrow">Browse Events</div>
         <h2 className="section-title">Choose an event to request corporate tickets</h2>
-        <label style={{ display: "grid", gap: 8, marginTop: 18 }}>
-          <span className="eyebrow">Search</span>
-          <div style={{ position: "relative" }}>
-            <Search size={16} style={{ position: "absolute", left: 14, top: 16, color: "var(--text-soft)" }} />
-            <input
-              className="input"
-              style={{ paddingLeft: 40 }}
-              placeholder="Search by event name or venue"
-              value={searchTerm}
-              onChange={(nextEvent) => setSearchTerm(nextEvent.target.value)}
-            />
-          </div>
-        </label>
+        <div className="grid" style={{ gridTemplateColumns: "2fr 1fr 1fr 1fr", marginTop: 18 }}>
+          <label style={{ display: "grid", gap: 8 }}>
+            <span className="eyebrow">Search</span>
+            <div style={{ position: "relative" }}>
+              <Search size={16} style={{ position: "absolute", left: 14, top: 16, color: "var(--text-soft)" }} />
+              <input
+                className="input"
+                style={{ paddingLeft: 40 }}
+                placeholder="Search by event name or venue"
+                value={searchTerm}
+                onChange={(nextEvent) => setSearchTerm(nextEvent.target.value)}
+              />
+            </div>
+          </label>
+          <label style={{ display: "grid", gap: 8 }}>
+            <span className="eyebrow">Event Type</span>
+            <select className="select" value={eventType} onChange={(event) => setEventType(event.target.value)}>
+              <option value="ALL">All</option>
+              <option value="CONFERENCE">Conference</option>
+              <option value="CONCERT">Concert</option>
+              <option value="WORKSHOP">Workshop</option>
+              <option value="SPORTS">Sports</option>
+            </select>
+          </label>
+          <label style={{ display: "grid", gap: 8 }}>
+            <span className="eyebrow">View</span>
+            <select className="select" value={eventWindow} onChange={(event) => setEventWindow(event.target.value)}>
+              <option value="UPCOMING">Upcoming</option>
+              <option value="ONGOING">Ongoing</option>
+              <option value="COMPLETED">Completed</option>
+            </select>
+          </label>
+          <label style={{ display: "grid", gap: 8 }}>
+            <span className="eyebrow">Sort By</span>
+            <select className="select" value={sortBy} onChange={(event) => setSortBy(event.target.value)}>
+              <option value="date">Date</option>
+              <option value="price">Starting price</option>
+            </select>
+          </label>
+        </div>
         {error && <div className="badge" style={{ marginTop: 16 }}>{error}</div>}
       </Card>
 

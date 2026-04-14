@@ -9,6 +9,7 @@ import { Card } from "@/components/ui/Card";
 import { emtsApi } from "@/services/live-api";
 import { useAsyncResource } from "@/services/use-async-resource";
 import { formatDateTime } from "@/utils/format";
+import { isEventStillLive } from "@/utils/ticketing";
 
 type ScanState = {
   outcome: "VALID" | "DUPLICATE" | "CANCELLED" | "INVALID";
@@ -120,7 +121,9 @@ export function StaffScannerPage() {
   const assignments = assignmentsData ?? [];
   const events = eventsData ?? [];
   const tickets = ticketsData ?? [];
-  const assignedEvents = events.filter((event) => assignments.some((assignment) => assignment.eventId === event.eventId));
+  const assignedEvents = events.filter(
+    (event) => assignments.some((assignment) => assignment.eventId === event.eventId) && isEventStillLive(event)
+  );
   const selectedEvent = assignedEvents.find((event) => event.eventId === selectedEventId) ?? assignedEvents[0] ?? null;
   const selectedEventTickets = selectedEvent ? tickets.filter((ticket) => ticket.eventId === selectedEvent.eventId) : [];
   const selectedEventPresentCount = selectedEventTickets.filter((ticket) => ticket.ticketStatus === "USED").length;

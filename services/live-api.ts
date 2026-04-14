@@ -20,7 +20,7 @@ import {
   User,
   UserRole
 } from "@/types/contracts";
-import { localDateTimeInputToBackendUtc, normalizeBackendUtcDateTime } from "@/utils/date-time";
+import { getDateTimeMillis, localDateTimeInputToBackendUtc, normalizeBackendUtcDateTime } from "@/utils/date-time";
 import { isInternalUseCategoryName } from "@/utils/ticketing";
 
 const API_BASE_PATH = "/api/emts";
@@ -549,8 +549,8 @@ function ensureQuantity(category: BackendTicketCategory, quantity: number) {
 
 function getCancellationOutcome(event: Event, policy: RefundPolicy) {
   const now = Date.now();
-  const eventStart = new Date(event.startDateTime).getTime();
-  const eventEnd = new Date(event.endDateTime).getTime();
+  const eventStart = getDateTimeMillis(event.startDateTime);
+  const eventEnd = getDateTimeMillis(event.endDateTime);
 
   if (now >= eventEnd) {
     return { allowed: false, mode: "closed" as const };
@@ -1085,7 +1085,7 @@ export const emtsApi = {
     if (payload.quantity > 10) throw new Error("Customers can book at most 10 tickets in one booking.");
     ensureQuantity(category, payload.quantity);
 
-    const saleStart = category.saleStartDate ? new Date(normalizeBackendUtcDateTime(category.saleStartDate)).getTime() : Number.NEGATIVE_INFINITY;
+    const saleStart = category.saleStartDate ? getDateTimeMillis(category.saleStartDate) : Number.NEGATIVE_INFINITY;
     if (Date.now() < saleStart) {
       throw new Error("Ticket sales for this category have not started yet.");
     }

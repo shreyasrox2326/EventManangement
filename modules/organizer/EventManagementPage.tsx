@@ -9,6 +9,7 @@ import { Card } from "@/components/ui/Card";
 import { emtsApi } from "@/services/live-api";
 import { useAsyncResource } from "@/services/use-async-resource";
 import { StaffEventAssignment } from "@/types/contracts";
+import { getDateTimeMillis } from "@/utils/date-time";
 import { formatCurrency, formatDateTime, formatPercentage } from "@/utils/format";
 import { isInternalUseCategory } from "@/utils/ticketing";
 
@@ -18,8 +19,8 @@ const getOrganizerStatus = (event: { status: string; startDateTime: string; endD
   if (normalized === "cancelled") return "cancelled";
 
   const now = Date.now();
-  const start = new Date(event.startDateTime).getTime();
-  const end = new Date(event.endDateTime).getTime();
+  const start = getDateTimeMillis(event.startDateTime);
+  const end = getDateTimeMillis(event.endDateTime);
 
   if (now >= end) return "completed";
   if (now >= start) return "ongoing";
@@ -258,6 +259,7 @@ export function EventManagementPage() {
         const eventCorporateRequests = corporateRequests.filter((request) => request.eventId === event.eventId);
         const eventStaffAssignments: StaffEventAssignment[] = staffAssignmentsByEvent[event.eventId] ?? [];
         const internalCategories = event.ticketCategories.filter((category) => isInternalUseCategory(category));
+        const actionLocked = organizerStatus === "completed" || organizerStatus === "cancelled" || organizerStatus === "deleted";
         const filteredStaffUsers = staffUsers.filter((user) => {
           if (eventStaffAssignments.some((assignment) => assignment.staffUserId === user.userId)) {
             return false;
@@ -316,9 +318,13 @@ export function EventManagementPage() {
                       <Link href={`/organizer/reports?eventId=${event.eventId}`} className="button button-secondary">
                         Open reports
                       </Link>
-                      <Button type="button" onClick={() => handleDelete(event.eventId)} disabled={isDeleting === event.eventId}>
-                        {isDeleting === event.eventId ? "Deleting..." : "Delete event"}
-                      </Button>
+                      {!actionLocked ? (
+                        <Button type="button" onClick={() => handleDelete(event.eventId)} disabled={isDeleting === event.eventId}>
+                          {isDeleting === event.eventId ? "Deleting..." : "Delete event"}
+                        </Button>
+                      ) : (
+                        <div className="muted">This event is closed, so new destructive actions are disabled.</div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -374,38 +380,44 @@ export function EventManagementPage() {
                 <div className="card" style={{ padding: 18 }}>
                   <div className="eyebrow">Internal Usage</div>
                   <div className="grid" style={{ gap: 12, marginTop: 12 }}>
-                    <div className="muted">Issue zero-revenue internal usage tickets for your own organizer access on this event.</div>
-                    <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-                      <select
-                        className="select"
-                        value={internalTicketTypeByEvent[event.eventId] ?? "Internal"}
-                        onChange={(nextEvent) =>
-                          setInternalTicketTypeByEvent((current) => ({
-                            ...current,
-                            [event.eventId]: nextEvent.target.value as "Internal" | "VIP"
-                          }))
-                        }
-                      >
-                        <option value="Internal">Internal</option>
-                        <option value="VIP">VIP</option>
-                      </select>
-                      <input
-                        className="input"
-                        style={{ width: 120 }}
-                        type="number"
-                        min={1}
-                        value={internalTicketQuantityByEvent[event.eventId] ?? "1"}
-                        onChange={(nextEvent) =>
-                          setInternalTicketQuantityByEvent((current) => ({
-                            ...current,
-                            [event.eventId]: nextEvent.target.value
-                          }))
-                        }
-                      />
-                      <Button type="button" onClick={() => issueInternalTickets(event.eventId)} disabled={isIssuingInternalForEvent === event.eventId}>
-                        {isIssuingInternalForEvent === event.eventId ? "Issuing..." : "Issue internal tickets"}
-                      </Button>
-                    </div>
+                    {!actionLocked ? (
+                      <>
+                        <div className="muted">Issue zero-revenue internal usage tickets for your own organizer access on this event.</div>
+                        <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                          <select
+                            className="select"
+                            value={internalTicketTypeByEvent[event.eventId] ?? "Internal"}
+                            onChange={(nextEvent) =>
+                              setInternalTicketTypeByEvent((current) => ({
+                                ...current,
+                                [event.eventId]: nextEvent.target.value as "Internal" | "VIP"
+                              }))
+                            }
+                          >
+                            <option value="Internal">Internal</option>
+                            <option value="VIP">VIP</option>
+                          </select>
+                          <input
+                            className="input"
+                            style={{ width: 120 }}
+                            type="number"
+                            min={1}
+                            value={internalTicketQuantityByEvent[event.eventId] ?? "1"}
+                            onChange={(nextEvent) =>
+                              setInternalTicketQuantityByEvent((current) => ({
+                                ...current,
+                                [event.eventId]: nextEvent.target.value
+                              }))
+                            }
+                          />
+                          <Button type="button" onClick={() => issueInternalTickets(event.eventId)} disabled={isIssuingInternalForEvent === event.eventId}>
+                            {isIssuingInternalForEvent === event.eventId ? "Issuing..." : "Issue internal tickets"}
+                          </Button>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="muted">New internal usage tickets cannot be issued after the event is closed.</div>
+                    )}
                     <table className="table">
                       <thead>
                         <tr>
@@ -431,40 +443,46 @@ export function EventManagementPage() {
                 <div className="card" style={{ padding: 18 }}>
                   <div className="eyebrow">Staff Assignment</div>
                   <div className="grid" style={{ gap: 12, marginTop: 12 }}>
-                    <input
-                      className="input"
-                      placeholder="Search staff by name, email, or ID"
-                      value={staffSearchByEvent[event.eventId] ?? ""}
-                      onChange={(nextEvent) =>
-                        setStaffSearchByEvent((current) => ({
-                          ...current,
-                          [event.eventId]: nextEvent.target.value
-                        }))
-                      }
-                    />
-                    <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-                      <select
-                        className="select"
-                        value={selectedStaffByEvent[event.eventId] ?? ""}
-                        onChange={(nextEvent) =>
-                          setSelectedStaffByEvent((current) => ({
-                            ...current,
-                            [event.eventId]: nextEvent.target.value
-                          }))
-                        }
-                        style={{ minWidth: 280 }}
-                      >
-                        <option value="">Select staff user</option>
-                        {filteredStaffUsers.map((user) => (
-                          <option key={user.userId} value={user.userId}>
-                            {[user.fullName, user.emailAddress].join(" · ")}
-                          </option>
-                        ))}
-                      </select>
-                      <Button type="button" onClick={() => assignStaff(event.eventId)} disabled={isAssigningStaffForEvent === event.eventId || !selectedStaffByEvent[event.eventId]}>
-                        {isAssigningStaffForEvent === event.eventId ? "Assigning..." : "Assign staff"}
-                      </Button>
-                    </div>
+                    {!actionLocked ? (
+                      <>
+                        <input
+                          className="input"
+                          placeholder="Search staff by name, email, or ID"
+                          value={staffSearchByEvent[event.eventId] ?? ""}
+                          onChange={(nextEvent) =>
+                            setStaffSearchByEvent((current) => ({
+                              ...current,
+                              [event.eventId]: nextEvent.target.value
+                            }))
+                          }
+                        />
+                        <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                          <select
+                            className="select"
+                            value={selectedStaffByEvent[event.eventId] ?? ""}
+                            onChange={(nextEvent) =>
+                              setSelectedStaffByEvent((current) => ({
+                                ...current,
+                                [event.eventId]: nextEvent.target.value
+                              }))
+                            }
+                            style={{ minWidth: 280 }}
+                          >
+                            <option value="">Select staff user</option>
+                            {filteredStaffUsers.map((user) => (
+                              <option key={user.userId} value={user.userId}>
+                                {[user.fullName, user.emailAddress].join(" · ")}
+                              </option>
+                            ))}
+                          </select>
+                          <Button type="button" onClick={() => assignStaff(event.eventId)} disabled={isAssigningStaffForEvent === event.eventId || !selectedStaffByEvent[event.eventId]}>
+                            {isAssigningStaffForEvent === event.eventId ? "Assigning..." : "Assign staff"}
+                          </Button>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="muted">New staff assignments are disabled after the event is closed.</div>
+                    )}
                     <table className="table">
                       <thead>
                         <tr>

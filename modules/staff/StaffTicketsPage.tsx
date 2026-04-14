@@ -4,6 +4,7 @@ import { useAuth } from "@/app/providers";
 import { GroupedTicketsView } from "@/components/tickets/GroupedTicketsView";
 import { emtsApi } from "@/services/live-api";
 import { useAsyncResource } from "@/services/use-async-resource";
+import { isEventStillLive } from "@/utils/ticketing";
 
 export function StaffTicketsPage() {
   const { session } = useAuth();
@@ -32,7 +33,7 @@ export function StaffTicketsPage() {
     return Object.values(
       tickets.reduce<Record<string, { eventId: string; eventName: string; eventDate?: string; tickets: typeof tickets }>>((accumulator, ticket) => {
         const event = events.find((entry) => entry.eventId === ticket.eventId);
-        if (!event) {
+        if (!event || !isEventStillLive(event)) {
           return accumulator;
         }
 

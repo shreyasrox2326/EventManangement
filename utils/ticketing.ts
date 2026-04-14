@@ -1,4 +1,5 @@
 import { Event, Ticket, TicketCategory } from "@/types/contracts";
+import { getDateTimeMillis } from "@/utils/date-time";
 import QRCode from "qrcode";
 
 export const INTERNAL_USAGE_PREFIX = "internal usage -";
@@ -10,6 +11,11 @@ export const isInternalUseCategory = (category: Pick<TicketCategory, "displayNam
   isInternalUseCategoryName(category.displayName) || isInternalUseCategoryName(category.categoryCode);
 
 export const getSellableCategories = (event: Event) => event.ticketCategories.filter((category) => !isInternalUseCategory(category));
+
+export const isEventStillLive = (event: Pick<Event, "endDateTime">) => {
+  const endMillis = getDateTimeMillis(event.endDateTime);
+  return Number.isFinite(endMillis) ? endMillis > Date.now() : true;
+};
 
 export const getLowestAvailablePrice = (event: Event) => {
   const prices = getSellableCategories(event)
@@ -29,10 +35,11 @@ export const getEventSalesStatus = (event: Event) => {
   const saleStartTimes = sellableCategories
     .map((category) => category.saleStartDate)
     .filter((value): value is string => Boolean(value))
-    .map((value) => new Date(value).getTime());
+    .map((value) => getDateTimeMillis(value))
+    .filter((value) => Number.isFinite(value));
   const earliestSaleStart = saleStartTimes.length > 0 ? Math.min(...saleStartTimes) : Number.NEGATIVE_INFINITY;
   const totalAvailable = sellableCategories.reduce((sum, category) => sum + category.availableQuantity, 0);
-  const eventEnded = new Date(event.endDateTime).getTime() <= now;
+  const eventEnded = !isEventStillLive(event);
   const saleNotStarted = earliestSaleStart > now;
   const soldOut = sellableCategories.length === 0 || totalAvailable <= 0;
 

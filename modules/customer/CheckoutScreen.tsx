@@ -15,7 +15,7 @@ export function CheckoutScreen({ eventId }: { eventId: string }) {
   const { session } = useAuth();
   const { data: event, error, isLoading } = useAsyncResource(() => emtsApi.getEventById(eventId), [eventId]);
   const [categoryId, setCategoryId] = useState("");
-  const [quantity, setQuantity] = useState(1);
+  const [quantity, setQuantity] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("upi");
   const [message, setMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -29,8 +29,9 @@ export function CheckoutScreen({ eventId }: { eventId: string }) {
 
   const categories = event ? getSellableCategories(event) : [];
   const selectedCategory = categories.find((category) => category.ticketCategoryId === categoryId) ?? categories[0] ?? null;
-  const safeQuantity = Math.max(1, Math.min(quantity, Math.max(selectedCategory?.availableQuantity ?? 1, 1)));
-  const total = (selectedCategory?.unitPrice ?? 0) * safeQuantity;
+  const parsedQuantity = Number.parseInt(quantity, 10);
+  const hasValidQuantity = Number.isFinite(parsedQuantity) && parsedQuantity >= 1;
+  const total = (selectedCategory?.unitPrice ?? 0) * (hasValidQuantity ? parsedQuantity : 0);
   const salesStatus = event ? getEventSalesStatus(event) : null;
 
   const availabilityTone = useMemo(() => {
@@ -94,6 +95,16 @@ export function CheckoutScreen({ eventId }: { eventId: string }) {
       return;
     }
 
+    if (!Number.isFinite(parsedQuantity) || parsedQuantity < 1 || parsedQuantity > 10) {
+      setMessage("Please enter a ticket quantity between 1 and 10.");
+      return;
+    }
+
+    if (parsedQuantity > selectedCategory.availableQuantity) {
+      setMessage("Requested quantity exceeds the remaining tickets in this category.");
+      return;
+    }
+
     setIsSubmitting(true);
     setMessage("");
 
@@ -102,7 +113,7 @@ export function CheckoutScreen({ eventId }: { eventId: string }) {
         customerId: session.user.userId,
         eventId,
         ticketCategoryId: selectedCategory.ticketCategoryId,
-        quantity: safeQuantity,
+        quantity: parsedQuantity,
         paymentMethod
       });
       router.push(`/customer/bookings/${result.bookingId}`);
@@ -135,9 +146,9 @@ export function CheckoutScreen({ eventId }: { eventId: string }) {
               className="input"
               type="number"
               min={1}
-              max={Math.max(1, Math.min(10, selectedCategory.availableQuantity))}
-              value={safeQuantity}
-              onChange={(event) => setQuantity(Number(event.target.value) || 1)}
+              inputMode="numeric"
+              value={quantity}
+              onChange={(event) => setQuantity(event.target.value)}
             />
           </label>
           <label style={{ display: "grid", gap: 8 }}>

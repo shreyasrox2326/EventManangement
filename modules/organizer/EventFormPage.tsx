@@ -259,7 +259,7 @@ export function EventFormPage({ mode }: { mode: "create" | "edit" }) {
                   </button>
                 )}
               </div>
-              <div className="grid" style={{ gridTemplateColumns: "repeat(4, minmax(0, 1fr))" }}>
+              <div className="grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}>
                 <label style={{ display: "grid", gap: 8 }}>
                   <span className="eyebrow">Category name</span>
                   <input className="input" value={category.name} onChange={(event) => updateCategory(index, "name", event.target.value)} placeholder="VIP, General, Student..." />

@@ -6,6 +6,7 @@ import { useAuth } from "@/app/providers";
 import { Card } from "@/components/ui/Card";
 import { useAsyncResource } from "@/services/use-async-resource";
 import { emtsApi } from "@/services/live-api";
+import { isEventStillLive } from "@/utils/ticketing";
 
 export default function StaffPage() {
   const { session } = useAuth();
@@ -14,7 +15,9 @@ export default function StaffPage() {
   const { data: eventsData } = useAsyncResource(() => emtsApi.getEvents(), []);
   const assignments = assignmentsData ?? [];
   const events = eventsData ?? [];
-  const assignedEvents = events.filter((event) => assignments.some((assignment) => assignment.eventId === event.eventId));
+  const assignedEvents = events.filter(
+    (event) => assignments.some((assignment) => assignment.eventId === event.eventId) && isEventStillLive(event)
+  );
 
   return (
     <div className="grid">
