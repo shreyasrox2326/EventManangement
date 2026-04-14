@@ -311,12 +311,36 @@ export interface RegisterCustomerRequestDto {
   password: string;
 }
 
+export interface OtpChallengeDto {
+  challengeId: string;
+  email: string;
+  expiresAt: string;
+  message: string;
+  bookingId?: string;
+  paymentId?: string;
+}
+
+export interface VerifyOtpRequestDto {
+  challengeId: string;
+  otpCode: string;
+}
+
+export interface PasswordResetCompleteDto extends VerifyOtpRequestDto {
+  newPassword: string;
+}
+
 export interface CheckoutRequestDto {
   customerId: string;
   eventId: string;
   ticketCategoryId: string;
   quantity: number;
   paymentMethod: string;
+}
+
+export interface CheckoutConfirmationResult {
+  bookingId: string;
+  paymentId: string;
+  ticketIds: string[];
 }
 
 export interface BulkBookingRequestDto {

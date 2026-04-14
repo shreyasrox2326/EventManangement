@@ -1,7 +1,7 @@
 "use client";
 
 import { emtsApi } from "@/services/live-api";
-import { LoginRequestDto, LoginResponseDto, RegisterCustomerRequestDto } from "@/types/contracts";
+import { LoginRequestDto, LoginResponseDto, OtpChallengeDto, RegisterCustomerRequestDto, VerifyOtpRequestDto } from "@/types/contracts";
 
 const SESSION_KEY = "emts-session";
 
@@ -17,16 +17,27 @@ export const authService = {
     };
   },
 
-  async verifyOtp(_: string) {
-    return { verified: true };
+  async registerCustomer(payload: RegisterCustomerRequestDto): Promise<OtpChallengeDto> {
+    return emtsApi.createCustomerAccount(payload);
   },
 
-  async registerCustomer(payload: RegisterCustomerRequestDto) {
-    const user = await emtsApi.createCustomerAccount(payload);
+  async verifyCustomerRegistration(payload: VerifyOtpRequestDto) {
+    const user = await emtsApi.verifyCustomerRegistration(payload);
     return {
-      registrationId: user.userId,
-      status: "CREATED"
-    };
+      accessToken: `session-${user.userId}`,
+      refreshToken: `session-${user.userId}`,
+      user,
+      requiresTwoFactor: false
+    } satisfies LoginResponseDto;
+  },
+
+  async startPasswordReset(emailAddress: string): Promise<OtpChallengeDto> {
+    return emtsApi.startPasswordReset(emailAddress);
+  },
+
+  async completePasswordReset(payload: VerifyOtpRequestDto & { newPassword: string }) {
+    await emtsApi.completePasswordReset(payload);
+    return { status: "RESET" };
   },
 
   saveSession(session: LoginResponseDto) {

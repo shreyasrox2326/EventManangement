@@ -24,6 +24,9 @@ export function BookingDetailPage() {
   const [showQrs, setShowQrs] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [paymentChallengeId, setPaymentChallengeId] = useState("");
+  const [paymentOtpCode, setPaymentOtpCode] = useState("");
+  const [paymentOtpExpiresAt, setPaymentOtpExpiresAt] = useState("");
   const { data, isLoading } = useAsyncResource(async () => {
     const [requests, events] = await Promise.all([
       emtsApi.getCorporateRequestsForCorporate(corporateUserId),
@@ -81,7 +84,33 @@ export function BookingDetailPage() {
     setIsSubmitting(true);
     setMessage("");
     try {
-      await emtsApi.payCorporateRequest(request.requestId, "corporate");
+      const challenge = await emtsApi.sendCorporatePaymentOtp(request.requestId, "corporate");
+      setPaymentChallengeId(challenge.challengeId);
+      setPaymentOtpExpiresAt(challenge.expiresAt);
+      setMessage("Payment OTP sent to your email.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Unable to send payment OTP.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleConfirmPayment = async () => {
+    if (!request) return;
+    if (!paymentChallengeId || !paymentOtpCode.trim()) {
+      setMessage("Enter the OTP sent to your email.");
+      return;
+    }
+    setIsSubmitting(true);
+    setMessage("");
+    try {
+      await emtsApi.payCorporateRequest(request.requestId, "corporate", {
+        challengeId: paymentChallengeId,
+        otpCode: paymentOtpCode.trim()
+      });
+      setPaymentChallengeId("");
+      setPaymentOtpCode("");
+      setPaymentOtpExpiresAt("");
       setRefreshKey((current) => current + 1);
       router.refresh();
     } catch (error) {
@@ -201,9 +230,40 @@ export function BookingDetailPage() {
         {message && <div className="badge" style={{ marginTop: 16 }}>{message}</div>}
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginTop: 16 }}>
           {request.status === "approved_pending_payment" && (
-            <Button type="button" disabled={isSubmitting} onClick={handlePay}>
-              {isSubmitting ? "Processing..." : "Make payment"}
-            </Button>
+            <>
+              {!paymentChallengeId ? (
+                <Button type="button" disabled={isSubmitting} onClick={handlePay}>
+                  {isSubmitting ? "Sending OTP..." : "Send payment OTP"}
+                </Button>
+              ) : (
+                <>
+                  <input
+                    className="input mono"
+                    style={{ minWidth: 180 }}
+                    inputMode="numeric"
+                    value={paymentOtpCode}
+                    onChange={(event) => setPaymentOtpCode(event.target.value)}
+                    placeholder="Enter OTP"
+                  />
+                  <Button type="button" disabled={isSubmitting} onClick={handleConfirmPayment}>
+                    {isSubmitting ? "Confirming..." : "Confirm payment"}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    disabled={isSubmitting}
+                    onClick={() => {
+                      setPaymentChallengeId("");
+                      setPaymentOtpCode("");
+                      setPaymentOtpExpiresAt("");
+                      setMessage("");
+                    }}
+                  >
+                    Cancel OTP
+                  </Button>
+                </>
+              )}
+            </>
           )}
           {(request.status === "submitted" || request.status === "approved_pending_payment") && (
             <Button type="button" variant="secondary" disabled={isSubmitting} onClick={handleCancel}>
@@ -221,6 +281,11 @@ export function BookingDetailPage() {
             </>
           )}
         </div>
+        {paymentChallengeId && (
+          <div className="muted" style={{ marginTop: 12 }}>
+            OTP expires at {paymentOtpExpiresAt}.
+          </div>
+        )}
       </Card>
 
       {tickets.length > 0 && (

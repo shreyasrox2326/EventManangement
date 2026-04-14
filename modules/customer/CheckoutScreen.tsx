@@ -17,6 +17,11 @@ export function CheckoutScreen({ eventId }: { eventId: string }) {
   const [categoryId, setCategoryId] = useState("");
   const [quantity, setQuantity] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("upi");
+  const [challengeId, setChallengeId] = useState("");
+  const [otpCode, setOtpCode] = useState("");
+  const [pendingBookingId, setPendingBookingId] = useState("");
+  const [pendingPaymentId, setPendingPaymentId] = useState("");
+  const [otpExpiresAt, setOtpExpiresAt] = useState("");
   const [message, setMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -33,6 +38,7 @@ export function CheckoutScreen({ eventId }: { eventId: string }) {
   const hasValidQuantity = Number.isFinite(parsedQuantity) && parsedQuantity >= 1;
   const total = (selectedCategory?.unitPrice ?? 0) * (hasValidQuantity ? parsedQuantity : 0);
   const salesStatus = event ? getEventSalesStatus(event) : null;
+  const isOtpStep = Boolean(challengeId);
 
   const availabilityTone = useMemo(() => {
     if (!selectedCategory) {
@@ -84,7 +90,7 @@ export function CheckoutScreen({ eventId }: { eventId: string }) {
     );
   }
 
-  const handlePurchase = async () => {
+  const handleSendOtp = async () => {
     if (!session?.user.userId) {
       setMessage("You need to be signed in to complete this booking.");
       return;
@@ -109,14 +115,18 @@ export function CheckoutScreen({ eventId }: { eventId: string }) {
     setMessage("");
 
     try {
-      const result = await emtsApi.initiateCheckout({
+      const challenge = await emtsApi.initiateCheckout({
         customerId: session.user.userId,
         eventId,
         ticketCategoryId: selectedCategory.ticketCategoryId,
         quantity: parsedQuantity,
         paymentMethod
       });
-      router.push(`/customer/bookings/${result.bookingId}`);
+      setChallengeId(challenge.challengeId);
+      setPendingBookingId(challenge.bookingId ?? "");
+      setPendingPaymentId(challenge.paymentId ?? "");
+      setOtpExpiresAt(challenge.expiresAt);
+      setMessage("Payment OTP sent to your email.");
     } catch (nextError) {
       setMessage(nextError instanceof Error ? nextError.message : "Booking failed.");
     } finally {
@@ -124,47 +134,118 @@ export function CheckoutScreen({ eventId }: { eventId: string }) {
     }
   };
 
+  const handleConfirmPurchase = async () => {
+    if (!challengeId || !pendingBookingId || !pendingPaymentId) {
+      setMessage("Start payment again to receive a valid OTP.");
+      return;
+    }
+    if (!otpCode.trim()) {
+      setMessage("Enter the OTP sent to your email.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    setMessage("");
+
+    try {
+      const result = await emtsApi.confirmCheckout({
+        bookingId: pendingBookingId,
+        paymentId: pendingPaymentId,
+        challengeId,
+        otpCode: otpCode.trim()
+      });
+      router.push(`/customer/bookings/${result.bookingId}`);
+    } catch (nextError) {
+      setMessage(nextError instanceof Error ? nextError.message : "Unable to confirm payment.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleBackToSelection = () => {
+    setChallengeId("");
+    setOtpCode("");
+    setPendingBookingId("");
+    setPendingPaymentId("");
+    setOtpExpiresAt("");
+    setMessage("");
+  };
+
   return (
     <div className="two-column">
       <Card>
         <div className="eyebrow">Checkout</div>
-        <h2 className="section-title">Select category, quantity, and payment method</h2>
-        <div className="grid" style={{ marginTop: 18 }}>
-          <label style={{ display: "grid", gap: 8 }}>
-            <span className="eyebrow">Ticket category</span>
-            <select className="select" value={categoryId} onChange={(event) => setCategoryId(event.target.value)}>
-              {categories.map((category) => (
-                <option key={category.ticketCategoryId} value={category.ticketCategoryId}>
-                  {category.displayName} - {formatCurrency(category.unitPrice)}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label style={{ display: "grid", gap: 8 }}>
-            <span className="eyebrow">Quantity</span>
-            <input
-              className="input"
-              type="number"
-              min={1}
-              inputMode="numeric"
-              value={quantity}
-              onChange={(event) => setQuantity(event.target.value)}
-            />
-          </label>
-          <label style={{ display: "grid", gap: 8 }}>
-            <span className="eyebrow">Payment method</span>
-            <select className="select" value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value)}>
-              <option value="upi">UPI</option>
-              <option value="card">Card</option>
-              <option value="netbanking">Net Banking</option>
-            </select>
-          </label>
-          <div className="pill">{availabilityTone}</div>
-          {message && <div className="badge">{message}</div>}
-          <Button type="button" onClick={handlePurchase} disabled={isSubmitting || selectedCategory.availableQuantity === 0}>
-            {isSubmitting ? "Processing payment..." : "Pay and issue tickets"}
-          </Button>
-        </div>
+        <h2 className="section-title">{isOtpStep ? "Confirm payment OTP" : "Select category, quantity, and payment method"}</h2>
+        {!isOtpStep ? (
+          <div className="grid" style={{ marginTop: 18 }}>
+            <label style={{ display: "grid", gap: 8 }}>
+              <span className="eyebrow">Ticket category</span>
+              <select className="select" value={categoryId} onChange={(event) => setCategoryId(event.target.value)}>
+                {categories.map((category) => (
+                  <option key={category.ticketCategoryId} value={category.ticketCategoryId}>
+                    {category.displayName} - {formatCurrency(category.unitPrice)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label style={{ display: "grid", gap: 8 }}>
+              <span className="eyebrow">Quantity</span>
+              <input
+                className="input"
+                type="number"
+                min={1}
+                inputMode="numeric"
+                value={quantity}
+                onChange={(event) => setQuantity(event.target.value)}
+              />
+            </label>
+            <label style={{ display: "grid", gap: 8 }}>
+              <span className="eyebrow">Payment method</span>
+              <select className="select" value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value)}>
+                <option value="upi">UPI</option>
+                <option value="card">Card</option>
+                <option value="netbanking">Net Banking</option>
+              </select>
+            </label>
+            <div className="pill">{availabilityTone}</div>
+            {message && <div className="badge">{message}</div>}
+            <Button type="button" onClick={handleSendOtp} disabled={isSubmitting || selectedCategory.availableQuantity === 0}>
+              {isSubmitting ? "Sending OTP..." : "Send payment OTP"}
+            </Button>
+          </div>
+        ) : (
+          <div className="grid" style={{ marginTop: 18 }}>
+            <div className="details-list">
+              <div className="details-row">
+                <div className="details-key">Email verification</div>
+                <div className="details-value">OTP sent to your registered email</div>
+              </div>
+              <div className="details-row">
+                <div className="details-key">Expires</div>
+                <div className="details-value">{otpExpiresAt || "-"}</div>
+              </div>
+            </div>
+            <label style={{ display: "grid", gap: 8 }}>
+              <span className="eyebrow">OTP</span>
+              <input
+                className="input mono"
+                inputMode="numeric"
+                value={otpCode}
+                onChange={(event) => setOtpCode(event.target.value)}
+                placeholder="Enter 6-digit OTP"
+              />
+            </label>
+            {message && <div className="badge">{message}</div>}
+            <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+              <Button type="button" onClick={handleConfirmPurchase} disabled={isSubmitting}>
+                {isSubmitting ? "Confirming..." : "Confirm payment"}
+              </Button>
+              <Button type="button" variant="secondary" onClick={handleBackToSelection} disabled={isSubmitting}>
+                Back
+              </Button>
+            </div>
+          </div>
+        )}
       </Card>
 
       <Card>

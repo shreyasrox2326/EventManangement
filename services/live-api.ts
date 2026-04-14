@@ -4,15 +4,19 @@ import {
   CorporateBookingRequest,
   CorporateBookingRequestItem,
   CorporateProfile,
+  CheckoutConfirmationResult,
   Event,
   Notification,
   NotificationAudienceScope,
+  OtpChallengeDto,
   OrganizerProfile,
   OrganizerReportData,
   Payment,
+  PasswordResetCompleteDto,
   Refund,
   RefundPolicy,
   ReportRecord,
+  VerifyOtpRequestDto,
   StaffEventAssignment,
   Ticket,
   TicketCategory,
@@ -110,6 +114,21 @@ interface BackendLoginResponse {
   email: string;
   phone: string;
   type: string;
+}
+
+interface BackendOtpChallengeResponse {
+  challengeId: string;
+  email: string;
+  expiresAt: string;
+  message: string;
+  bookingId?: string;
+  paymentId?: string;
+}
+
+interface BackendCheckoutConfirmResponse {
+  bookingId: string;
+  paymentId: string;
+  ticketIds: string[];
 }
 
 interface TicketScanDetails {
@@ -425,6 +444,17 @@ function mapAuthenticatedUser(user: BackendLoginResponse): User {
   };
 }
 
+function mapOtpChallenge(response: BackendOtpChallengeResponse): OtpChallengeDto {
+  return {
+    challengeId: response.challengeId,
+    email: response.email,
+    expiresAt: normalizeBackendUtcDateTime(response.expiresAt),
+    message: response.message,
+    bookingId: response.bookingId,
+    paymentId: response.paymentId
+  };
+}
+
 function mapReport(report: BackendReport): ReportRecord {
   return {
     reportId: report.reportId,
@@ -599,25 +629,24 @@ export const emtsApi = {
     return mapUser(updated);
   },
 
-  async createCustomerAccount(payload: { fullName: string; emailAddress: string; phoneNumber: string; password: string }): Promise<User> {
-    const existingUsers = await getAllUsersRaw();
-    if (existingUsers.some((user) => user.email.toLowerCase() === payload.emailAddress.trim().toLowerCase())) {
-      throw new Error("An account with this email already exists.");
-    }
-
-    const created = await requestJson<BackendUser>("/users", {
+  async createCustomerAccount(payload: { fullName: string; emailAddress: string; phoneNumber: string; password: string }): Promise<OtpChallengeDto> {
+    return mapOtpChallenge(await requestJson<BackendOtpChallengeResponse>("/auth/register/start", {
       method: "POST",
       body: JSON.stringify({
-        user_id: generateId("user"),
-        name: payload.fullName.trim(),
+        fullName: payload.fullName.trim(),
         email: payload.emailAddress.trim(),
         phone: payload.phoneNumber.trim(),
-        password_hash: payload.password,
-        type: "customer"
+        password: payload.password
       })
-    });
+    }));
+  },
 
-    return mapUser(created);
+  async verifyCustomerRegistration(payload: VerifyOtpRequestDto): Promise<User> {
+    const response = await requestJson<BackendLoginResponse>("/auth/register/verify", {
+      method: "POST",
+      body: JSON.stringify(payload)
+    });
+    return mapAuthenticatedUser(response);
   },
 
   async login(emailAddress: string, password: string): Promise<User> {
@@ -630,6 +659,20 @@ export const emtsApi = {
     });
 
     return mapAuthenticatedUser(response);
+  },
+
+  async startPasswordReset(emailAddress: string): Promise<OtpChallengeDto> {
+    return mapOtpChallenge(await requestJson<BackendOtpChallengeResponse>("/auth/password-reset/start", {
+      method: "POST",
+      body: JSON.stringify({ email: emailAddress.trim() })
+    }));
+  },
+
+  async completePasswordReset(payload: PasswordResetCompleteDto): Promise<void> {
+    await requestJson("/auth/password-reset/complete", {
+      method: "POST",
+      body: JSON.stringify(payload)
+    });
   },
 
   async getEvents(): Promise<Event[]> {
@@ -867,10 +910,17 @@ export const emtsApi = {
     return mapCorporateRequest(await requestJson<BackendCorporateRequestView>(`/corporate-booking-requests/${requestId}/cancel`, { method: "POST" }));
   },
 
-  async payCorporateRequest(requestId: string, method: string): Promise<CorporateBookingRequest> {
-    return mapCorporateRequest(await requestJson<BackendCorporateRequestView>(`/corporate-booking-requests/${requestId}/pay`, {
+  async sendCorporatePaymentOtp(requestId: string, method: string): Promise<OtpChallengeDto> {
+    return mapOtpChallenge(await requestJson<BackendOtpChallengeResponse>(`/corporate-booking-requests/${requestId}/payment-otp`, {
       method: "POST",
       body: JSON.stringify({ method })
+    }));
+  },
+
+  async payCorporateRequest(requestId: string, method: string, verification?: VerifyOtpRequestDto): Promise<CorporateBookingRequest> {
+    return mapCorporateRequest(await requestJson<BackendCorporateRequestView>(`/corporate-booking-requests/${requestId}/pay`, {
+      method: "POST",
+      body: JSON.stringify({ method, challengeId: verification?.challengeId, otpCode: verification?.otpCode })
     }));
   },
 
@@ -1073,75 +1123,18 @@ export const emtsApi = {
     return mapTicket(created, bookings, categories);
   },
 
-  async initiateCheckout(payload: CheckoutRequestDto) {
-    const [category, event] = await Promise.all([
-      getAllCategoriesRaw().then((categories) => categories.find((entry) => entry.categoryId === payload.ticketCategoryId)),
-      this.getEventById(payload.eventId)
-    ]);
-
-    if (!category) throw new Error("Ticket category not found.");
-    if (!event) throw new Error("Event not found.");
-    if (isInternalUseCategoryName(category.name)) throw new Error("Internal usage categories are not available for public booking.");
-    if (payload.quantity > 10) throw new Error("Customers can book at most 10 tickets in one booking.");
-    ensureQuantity(category, payload.quantity);
-
-    const saleStart = category.saleStartDate ? getDateTimeMillis(category.saleStartDate) : Number.NEGATIVE_INFINITY;
-    if (Date.now() < saleStart) {
-      throw new Error("Ticket sales for this category have not started yet.");
-    }
-
-    const bookingId = generateId("booking");
-    const totalCost = Number(category.price) * payload.quantity;
-    const bookingTimestamp = new Date().toISOString();
-
-    await requestJson("/bookings", {
+  async initiateCheckout(payload: CheckoutRequestDto): Promise<OtpChallengeDto> {
+    return mapOtpChallenge(await requestJson<BackendOtpChallengeResponse>("/checkout/start", {
       method: "POST",
-      body: JSON.stringify({
-        bookingId,
-        userId: payload.customerId,
-        eventId: payload.eventId,
-        quantity: payload.quantity,
-        totalCost,
-        paymentStatus: "pending",
-        bookingTimestamp
-      })
-    });
+      body: JSON.stringify(payload)
+    }));
+  },
 
-    const createdPayment = await this.createPayment({
-      bookingId,
-      amount: totalCost,
-      method: payload.paymentMethod
-    });
-    const successfulPayment = await this.updatePaymentStatus(createdPayment.paymentId, "success");
-
-    await requestJson("/bookings", {
+  async confirmCheckout(payload: VerifyOtpRequestDto & { bookingId: string; paymentId: string }): Promise<CheckoutConfirmationResult> {
+    return requestJson<BackendCheckoutConfirmResponse>("/checkout/confirm", {
       method: "POST",
-      body: JSON.stringify({
-        bookingId,
-        userId: payload.customerId,
-        eventId: payload.eventId,
-        quantity: payload.quantity,
-        totalCost,
-        paymentStatus: successfulPayment.paymentStatus,
-        bookingTimestamp
-      })
+      body: JSON.stringify(payload)
     });
-
-    const tickets: Ticket[] = [];
-    for (let index = 0; index < payload.quantity; index += 1) {
-      tickets.push(await this.createTicket({ bookingId, categoryId: payload.ticketCategoryId }));
-    }
-
-    await this.upsertTicketCategory({ ...category, availableQty: category.availableQty - payload.quantity });
-    await this.createNotification({
-      eventId: payload.eventId,
-      userId: payload.customerId,
-      type: "payment",
-      message: `${payload.quantity} ticket(s) booked for ${event.title}.`,
-      audienceScope: "DIRECT"
-    });
-
-    return { bookingId, payment: successfulPayment, tickets };
   },
 
   async cancelTicket(ticketId: string) {
