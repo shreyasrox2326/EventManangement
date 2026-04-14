@@ -306,12 +306,14 @@ async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
 
   if (!response.ok) {
     const message = await response.text();
+    const parsedError = safeJsonParse<{ message?: string; error?: string }>(message);
+    const resolvedMessage = parsedError?.message || parsedError?.error || message;
     const normalizedPath = path.toLowerCase();
     if (normalizedPath === "/users/login" && (response.status === 401 || response.status === 500)) {
       throw new Error("Invalid email or password.");
     }
 
-    throw new Error(message || `Request failed for ${path}`);
+    throw new Error(resolvedMessage || `Request failed for ${path}`);
   }
 
   if (response.status === 204) {
