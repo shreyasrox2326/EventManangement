@@ -221,6 +221,8 @@ export interface CorporateBookingRequest {
 export interface EventReportCategory {
   ticketCategoryId: string;
   name: string;
+  capacity: number;
+  availableQuantity: number;
   soldQuantity: number;
   activeTickets: number;
   usedTickets: number;

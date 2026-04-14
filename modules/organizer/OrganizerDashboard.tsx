@@ -125,7 +125,8 @@ export function OrganizerDashboard() {
           <h3 style={{ marginBottom: 6 }}>Revenue by event</h3>
           <RevenueAreaChart
             data={organizerEvents.map((event) => ({
-              label: event.title.slice(0, 12),
+              label: event.title.length > 12 ? `${event.title.slice(0, 12)}…` : event.title,
+              fullLabel: event.title,
               value: organizerPayments
                 .filter((payment) => organizerBookings.some((booking) => booking.bookingId === payment.bookingId && booking.eventId === event.eventId))
                 .reduce((sum, payment) => sum + payment.amountPaid, 0)
@@ -134,13 +135,30 @@ export function OrganizerDashboard() {
         </Card>
         <Card>
           <div className="eyebrow">Attendance Mix</div>
-          <h3 style={{ marginBottom: 6 }}>Checked in vs active vs cancelled</h3>
+          <h3 style={{ marginBottom: 6 }}>Capacity, sold, and attended</h3>
           <AttendanceDonutChart
-            data={[
-              { name: "Checked In", value: checkedInCount },
-              { name: "Active", value: activeTickets },
-              { name: "Cancelled", value: organizerTickets.filter((ticket) => ticket.ticketStatus === "CANCELLED").length }
-            ]}
+            capacityData={[
+              { name: "Sold seats", value: organizerTickets.filter((ticket) => ticket.ticketStatus !== "CANCELLED").length, color: "var(--accent)" },
+              {
+                name: "Unsold seats",
+                value: Math.max(
+                  organizerEvents.reduce((sum, event) => sum + event.seatCapacity, 0) -
+                    organizerTickets.filter((ticket) => ticket.ticketStatus !== "CANCELLED").length,
+                  0
+                ),
+                color: "rgba(148, 163, 184, 0.24)"
+              }
+            ].filter((entry) => entry.value > 0)}
+            soldData={[
+              { name: "Attended", value: checkedInCount, color: "var(--success)" },
+              {
+                name: "Sold, not attended",
+                value: Math.max(organizerTickets.filter((ticket) => ticket.ticketStatus !== "CANCELLED").length - checkedInCount, 0),
+                color: "rgba(245, 158, 11, 0.22)"
+              }
+            ].filter((entry) => entry.value > 0)}
+            centerLabel="Attended / Capacity"
+            centerValue={`${checkedInCount} / ${organizerEvents.reduce((sum, event) => sum + event.seatCapacity, 0)}`}
           />
         </Card>
       </div>
@@ -151,7 +169,11 @@ export function OrganizerDashboard() {
           <h3 style={{ marginBottom: 6 }}>Published event occupancy</h3>
           <OccupancyBarChart
             data={publishedEvents
-              .map((event) => ({ label: event.title.split(" ")[0], value: event.occupancyPercentage }))}
+              .map((event) => ({
+                label: event.title.length > 12 ? `${event.title.slice(0, 12)}…` : event.title,
+                fullLabel: event.title,
+                value: Number(event.occupancyPercentage.toFixed(1))
+              }))}
           />
         </Card>
         <Card>

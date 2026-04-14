@@ -15,6 +15,13 @@ import { formatCurrency, formatDateTime, formatPercentage } from "@/utils/format
 
 const chartWindowSequence = [5, 10, "all"] as const;
 
+const chartPalette = {
+  sold: "var(--accent)",
+  unsold: "rgba(148, 163, 184, 0.24)",
+  attended: "var(--success)",
+  notAttended: "rgba(245, 158, 11, 0.22)"
+} as const;
+
 const downloadFile = (filename: string, contents: string, mimeType: string) => {
   const blob = new Blob([contents], { type: mimeType });
   const url = URL.createObjectURL(blob);
@@ -67,6 +74,7 @@ export function ReportsDashboard() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isSavingExpenses, setIsSavingExpenses] = useState(false);
   const [chartWindow, setChartWindow] = useState<(typeof chartWindowSequence)[number]>(5);
+  const [selectedAttendanceScope, setSelectedAttendanceScope] = useState("all");
   const [expenseLabel, setExpenseLabel] = useState("");
   const [expenseAmount, setExpenseAmount] = useState("");
   const { data: reportsData, isLoading, error } = useAsyncResource(() => emtsApi.getReportsByOrganizer(organizerId), [organizerId, refreshKey]);
@@ -102,6 +110,72 @@ export function ReportsDashboard() {
       : filteredEvents.slice(0, chartWindow);
 
   const selectedExpenseEvent = selectedEventFilter === "all" ? null : filteredEvents[0] ?? null;
+  const attendanceScopes = useMemo(() => {
+    if (!selectedExpenseEvent) {
+      return [{ value: "all", label: "All categories" }];
+    }
+
+    return [
+      { value: "all", label: "All categories" },
+      ...selectedExpenseEvent.categories.map((category) => ({
+        value: category.ticketCategoryId,
+        label: category.name
+      }))
+    ];
+  }, [selectedExpenseEvent]);
+
+  useEffect(() => {
+    if (!attendanceScopes.some((scope) => scope.value === selectedAttendanceScope)) {
+      setSelectedAttendanceScope("all");
+    }
+  }, [attendanceScopes, selectedAttendanceScope]);
+
+  const attendanceBreakdown = useMemo(() => {
+    if (selectedExpenseEvent) {
+      const selectedCategory =
+        selectedAttendanceScope === "all"
+          ? null
+          : selectedExpenseEvent.categories.find((category) => category.ticketCategoryId === selectedAttendanceScope) ?? null;
+
+      const capacity = selectedCategory
+        ? selectedCategory.capacity
+        : selectedExpenseEvent.categories.reduce((sum, category) => sum + category.capacity, 0);
+      const sold = selectedCategory
+        ? selectedCategory.soldQuantity
+        : selectedExpenseEvent.categories.reduce((sum, category) => sum + category.soldQuantity, 0);
+      const attended = selectedCategory
+        ? selectedCategory.usedTickets
+        : selectedExpenseEvent.categories.reduce((sum, category) => sum + category.usedTickets, 0);
+
+      return {
+        label: selectedCategory ? `${selectedCategory.name} attendance` : "Event attendance",
+        capacity,
+        sold,
+        attended
+      };
+    }
+
+    const capacity = filteredEvents.reduce((sum, event) => sum + event.seatCapacity, 0);
+    const sold = filteredEvents.reduce((sum, event) => sum + event.ticketsSold, 0);
+    const attended = filteredEvents.reduce((sum, event) => sum + event.checkedInCount, 0);
+
+    return {
+      label: "Attendance across selected events",
+      capacity,
+      sold,
+      attended
+    };
+  }, [filteredEvents, selectedAttendanceScope, selectedExpenseEvent]);
+
+  const attendanceCapacityData = [
+    { name: "Sold seats", value: attendanceBreakdown.sold, color: chartPalette.sold },
+    { name: "Unsold seats", value: Math.max(attendanceBreakdown.capacity - attendanceBreakdown.sold, 0), color: chartPalette.unsold }
+  ].filter((entry) => entry.value > 0);
+
+  const attendanceSoldData = [
+    { name: "Attended", value: attendanceBreakdown.attended, color: chartPalette.attended },
+    { name: "Sold, not attended", value: Math.max(attendanceBreakdown.sold - attendanceBreakdown.attended, 0), color: chartPalette.notAttended }
+  ].filter((entry) => entry.value > 0);
 
   const handleGenerate = async () => {
     setIsGenerating(true);
@@ -162,6 +236,8 @@ export function ReportsDashboard() {
         capacity: event.seatCapacity,
         tickets_sold: event.ticketsSold,
         checked_in: event.checkedInCount,
+        seats_unsold: Math.max(event.seatCapacity - event.ticketsSold, 0),
+        sold_not_attended: Math.max(event.ticketsSold - event.checkedInCount, 0),
         cancelled: event.cancelledTickets,
         occupancy_percent: Number(event.occupancyPercentage.toFixed(0)),
         no_show_percent: Number(event.noShowPercentage.toFixed(0)),
@@ -179,16 +255,19 @@ export function ReportsDashboard() {
     const csv = toCsv(
       selectedData.events.flatMap((event) =>
         event.categories.map((category) => ({
-          event_name: event.title,
-          event_id: event.eventId,
-          category_name: category.name,
-          category_id: category.ticketCategoryId,
-          sold: category.soldQuantity,
-          active: category.activeTickets,
-          used: category.usedTickets,
-          cancelled: category.cancelledTickets,
-          revenue: category.revenue
-        }))
+        event_name: event.title,
+        event_id: event.eventId,
+        category_name: category.name,
+        category_id: category.ticketCategoryId,
+        category_capacity: category.capacity,
+        available_quantity: category.availableQuantity,
+        sold: category.soldQuantity,
+        active: category.activeTickets,
+        used: category.usedTickets,
+        sold_not_attended: Math.max(category.soldQuantity - category.usedTickets, 0),
+        cancelled: category.cancelledTickets,
+        revenue: category.revenue
+      }))
       )
     );
     downloadFile(`report_${selectedReport.reportId}_categories.csv`, csv, "text/csv;charset=utf-8");
@@ -425,26 +504,70 @@ export function ReportsDashboard() {
             <Card>
               <div className="eyebrow">Revenue</div>
               <h3 style={{ marginBottom: 6 }}>Revenue by event</h3>
-              <RevenueAreaChart data={chartEvents.map((event) => ({ label: event.title.slice(0, 12), value: event.grossRevenue }))} />
+              <RevenueAreaChart
+                data={chartEvents.map((event) => ({
+                  label: event.title.length > 12 ? `${event.title.slice(0, 12)}…` : event.title,
+                  fullLabel: event.title,
+                  value: event.grossRevenue
+                }))}
+              />
             </Card>
             <Card>
               <div className="eyebrow">Occupancy</div>
               <h3 style={{ marginBottom: 6 }}>Occupancy by event</h3>
-              <OccupancyBarChart data={chartEvents.map((event) => ({ label: event.title.slice(0, 12), value: Math.round(event.occupancyPercentage) }))} />
+              <OccupancyBarChart
+                data={chartEvents.map((event) => ({
+                  label: event.title.length > 12 ? `${event.title.slice(0, 12)}…` : event.title,
+                  fullLabel: event.title,
+                  value: Number(event.occupancyPercentage.toFixed(1))
+                }))}
+              />
             </Card>
           </div>
 
           <div className="grid" style={{ gridTemplateColumns: "1fr 1fr" }}>
             <Card>
               <div className="eyebrow">Attendance</div>
-              <h3 style={{ marginBottom: 6 }}>Attendance mix</h3>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center", marginBottom: 6 }}>
+                <h3 style={{ marginBottom: 0 }}>Attendance against capacity</h3>
+                <select
+                  className="select"
+                  value={selectedAttendanceScope}
+                  onChange={(event) => setSelectedAttendanceScope(event.target.value)}
+                  disabled={!selectedExpenseEvent}
+                  style={{ minWidth: 220 }}
+                >
+                  {attendanceScopes.map((scope) => (
+                    <option key={scope.value} value={scope.value}>
+                      {scope.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
               <AttendanceDonutChart
-                data={[
-                  { name: "Checked In", value: filteredEvents.reduce((sum, event) => sum + event.checkedInCount, 0) },
-                  { name: "Cancelled", value: filteredEvents.reduce((sum, event) => sum + event.cancelledTickets, 0) },
-                  { name: "No-show", value: Math.max(filteredEvents.reduce((sum, event) => sum + (event.ticketsSold - event.checkedInCount - event.cancelledTickets), 0), 0) }
-                ]}
+                capacityData={attendanceCapacityData}
+                soldData={attendanceSoldData}
+                centerLabel="Attended / Capacity"
+                centerValue={`${attendanceBreakdown.attended} / ${attendanceBreakdown.capacity}`}
               />
+              <div className="details-list" style={{ marginTop: 8 }}>
+                <div className="details-row">
+                  <div className="details-key">View</div>
+                  <div className="details-value">{attendanceBreakdown.label}</div>
+                </div>
+                <div className="details-row">
+                  <div className="details-key">Capacity</div>
+                  <div className="details-value">{attendanceBreakdown.capacity}</div>
+                </div>
+                <div className="details-row">
+                  <div className="details-key">Sold</div>
+                  <div className="details-value">{attendanceBreakdown.sold}</div>
+                </div>
+                <div className="details-row">
+                  <div className="details-key">Attended</div>
+                  <div className="details-value">{attendanceBreakdown.attended}</div>
+                </div>
+              </div>
             </Card>
             <Card>
               <div className="eyebrow">Events</div>
@@ -465,7 +588,7 @@ export function ReportsDashboard() {
                     <tr key={event.eventId}>
                       <td>{event.title}</td>
                       <td>{formatDateTime(event.startDateTime)}</td>
-                      <td>{formatPercentage(Math.round(event.occupancyPercentage))}</td>
+                      <td>{formatPercentage(Number(event.occupancyPercentage.toFixed(1)))}</td>
                       <td>{formatCurrency(event.grossRevenue)}</td>
                       <td>{formatCurrency(event.totalExpenses ?? 0)}</td>
                       <td>{formatCurrency(event.netRevenue ?? event.grossRevenue)}</td>
@@ -525,8 +648,10 @@ export function ReportsDashboard() {
                 <tr>
                   <th>Event</th>
                   <th>Category</th>
+                  <th>Capacity</th>
                   <th>Sold</th>
                   <th>Used</th>
+                  <th>Sold not attended</th>
                   <th>Cancelled</th>
                   <th>Revenue</th>
                 </tr>
@@ -537,8 +662,10 @@ export function ReportsDashboard() {
                     <tr key={`${event.eventId}-${category.ticketCategoryId}`}>
                       <td>{event.title}</td>
                       <td>{category.name}</td>
+                      <td>{category.capacity}</td>
                       <td>{category.soldQuantity}</td>
                       <td>{category.usedTickets}</td>
+                      <td>{Math.max(category.soldQuantity - category.usedTickets, 0)}</td>
                       <td>{category.cancelledTickets}</td>
                       <td>{formatCurrency(category.revenue)}</td>
                     </tr>

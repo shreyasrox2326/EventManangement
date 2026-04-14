@@ -1341,6 +1341,8 @@ export const emtsApi = {
           return {
             ticketCategoryId: category.ticketCategoryId,
             name: category.displayName,
+            capacity: category.capacity,
+            availableQuantity: category.availableQuantity,
             soldQuantity,
             activeTickets: categoryTickets.filter((ticket) => ticket.ticketStatus === "ACTIVE").length,
             usedTickets: categoryTickets.filter((ticket) => ticket.ticketStatus === "USED").length,
