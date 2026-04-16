@@ -1,6 +1,7 @@
 .next
 node_modules
 dist
+postman/
 .DS_Store
 *.log
 .env
