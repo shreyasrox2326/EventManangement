@@ -13,6 +13,14 @@ import { formatCurrency, formatDateTime } from "@/utils/format";
 import { buildTicketQrPayload, downloadTicketQrZip } from "@/utils/ticketing";
 
 const statusDot = (status: string) => (status === "ACTIVE" ? "var(--success)" : status === "USED" ? "var(--danger)" : "var(--text-soft)");
+const refundStatusLabel = (paymentStatus?: string) => {
+  const normalized = (paymentStatus ?? "").toLowerCase();
+  if (normalized.startsWith("refunded")) return "Refund processed";
+  if (normalized === "no_refund") return "Cancelled without refund";
+  if (normalized.includes("refund")) return paymentStatus ?? "Refund updated";
+  return "No refund recorded";
+};
+
 export function BookingDetailPage() {
   const params = useParams<{ bookingId: string }>();
   const router = useRouter();
@@ -40,13 +48,17 @@ export function BookingDetailPage() {
 
     const event = events.find((entry) => entry.eventId === request.eventId) ?? null;
     const tickets = request.bookingId ? await emtsApi.getTicketsByBooking(request.bookingId) : [];
+    const booking = request.bookingId ? await emtsApi.getBookingById(request.bookingId) : null;
+    const payment = request.bookingId ? await emtsApi.getPaymentByBooking(request.bookingId) : null;
 
-    return { request, event, tickets };
+    return { request, event, tickets, booking, payment };
   }, [corporateUserId, routeId, refreshKey]);
 
   const request = data?.request ?? null;
   const event = data?.event ?? null;
   const tickets = data?.tickets ?? [];
+  const booking = data?.booking ?? null;
+  const payment = data?.payment ?? null;
 
   const offerTotal = useMemo(
     () => request?.offeredTotalAmount ?? request?.items.reduce((sum, item) => sum + ((item.offeredUnitPrice ?? 0) * (item.approvedQty ?? 0)), 0) ?? 0,
@@ -66,6 +78,17 @@ export function BookingDetailPage() {
     () =>
       tickets.reduce<Record<string, number>>((accumulator, ticket) => {
         if (ticket.ticketStatus === "USED") {
+          accumulator[ticket.ticketCategoryId] = (accumulator[ticket.ticketCategoryId] ?? 0) + 1;
+        }
+        return accumulator;
+      }, {}),
+    [tickets]
+  );
+
+  const cancelledCountsByCategory = useMemo(
+    () =>
+      tickets.reduce<Record<string, number>>((accumulator, ticket) => {
+        if (ticket.ticketStatus === "CANCELLED") {
           accumulator[ticket.ticketCategoryId] = (accumulator[ticket.ticketCategoryId] ?? 0) + 1;
         }
         return accumulator;
@@ -200,6 +223,7 @@ export function BookingDetailPage() {
               <th>Approved</th>
               <th>Booked</th>
               <th>Used</th>
+              <th>Cancelled</th>
               <th>Unit price</th>
             </tr>
           </thead>
@@ -213,6 +237,7 @@ export function BookingDetailPage() {
                   <td>{item.approvedQty ?? "-"}</td>
                   <td>{request.status === "paid" ? (bookedCountsByCategory[item.categoryId] ?? 0) : 0}</td>
                   <td>{request.status === "paid" ? (usedCountsByCategory[item.categoryId] ?? 0) : 0}</td>
+                  <td>{request.status === "paid" ? (cancelledCountsByCategory[item.categoryId] ?? 0) : 0}</td>
                   <td>{item.offeredUnitPrice !== undefined ? formatCurrency(item.offeredUnitPrice) : "Pending"}</td>
                 </tr>
               );
@@ -288,6 +313,42 @@ export function BookingDetailPage() {
         )}
       </Card>
 
+      {request.bookingId && (
+        <Card style={{ padding: 24 }}>
+          <div className="eyebrow">Payment</div>
+          <div className="details-list" style={{ marginTop: 12 }}>
+            <div className="details-row">
+              <div className="details-key">Booking ID</div>
+              <div className="details-value mono">{request.bookingId}</div>
+            </div>
+            <div className="details-row">
+              <div className="details-key">Payment ID</div>
+              <div className="details-value mono">{payment?.paymentId ?? request.paymentId ?? "Not found"}</div>
+            </div>
+            <div className="details-row">
+              <div className="details-key">Payment status</div>
+              <div className="details-value">{payment?.paymentStatus ?? booking?.bookingStatus ?? request.status}</div>
+            </div>
+            <div className="details-row">
+              <div className="details-key">Paid amount</div>
+              <div className="details-value">{formatCurrency(payment?.amountPaid ?? booking?.totalAmount ?? offerTotal)}</div>
+            </div>
+            <div className="details-row">
+              <div className="details-key">Mode</div>
+              <div className="details-value">{payment?.paymentGatewayCode ?? "corporate"}</div>
+            </div>
+            <div className="details-row">
+              <div className="details-key">Paid at</div>
+              <div className="details-value">{payment?.paidAt ? formatDateTime(payment.paidAt) : request.paidAt ? formatDateTime(request.paidAt) : "Not recorded"}</div>
+            </div>
+            <div className="details-row">
+              <div className="details-key">Refund status</div>
+              <div className="details-value">{refundStatusLabel(payment?.paymentStatus)}</div>
+            </div>
+          </div>
+        </Card>
+      )}
+
       {tickets.length > 0 && (
         <Card style={{ padding: 24 }}>
           <div className="eyebrow">Issued Tickets</div>
@@ -299,6 +360,10 @@ export function BookingDetailPage() {
             <div style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
               <span style={{ width: 10, height: 10, borderRadius: "50%", background: "var(--danger)", display: "inline-block" }} />
               <span className="muted">Used</span>
+            </div>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+              <span style={{ width: 10, height: 10, borderRadius: "50%", background: "var(--text-soft)", display: "inline-block" }} />
+              <span className="muted">Cancelled</span>
             </div>
           </div>
           <table className="table" style={{ marginTop: 12 }}>

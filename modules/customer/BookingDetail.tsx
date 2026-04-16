@@ -11,6 +11,14 @@ import { formatCurrency, formatDateTime } from "@/utils/format";
 import { buildTicketQrPayload } from "@/utils/ticketing";
 
 const statusDot = (status: string) => (status === "ACTIVE" ? "var(--success)" : status === "USED" ? "var(--danger)" : "var(--text-soft)");
+const refundStatusLabel = (paymentStatus?: string) => {
+  const normalized = (paymentStatus ?? "").toLowerCase();
+  if (normalized.startsWith("refunded")) return "Refund processed";
+  if (normalized === "no_refund") return "Cancelled without refund";
+  if (normalized.includes("refund")) return paymentStatus ?? "Refund updated";
+  return "No refund recorded";
+};
+
 export function BookingDetail({ bookingId }: { bookingId: string }) {
   const [refreshKey, setRefreshKey] = useState(0);
   const [message, setMessage] = useState("");
@@ -23,12 +31,13 @@ export function BookingDetail({ bookingId }: { bookingId: string }) {
       return null;
     }
 
-    const [event, tickets] = await Promise.all([
+    const [event, tickets, payment] = await Promise.all([
       emtsApi.getEventById(booking.eventId),
-      emtsApi.getTicketsByBooking(booking.bookingId)
+      emtsApi.getTicketsByBooking(booking.bookingId),
+      emtsApi.getPaymentByBooking(booking.bookingId)
     ]);
 
-    return { booking, event, tickets };
+    return { booking, event, tickets, payment };
   }, [bookingId, refreshKey]);
 
   if (isLoading) {
@@ -39,15 +48,18 @@ export function BookingDetail({ bookingId }: { bookingId: string }) {
     return <Card><div className="muted">{error || "Booking not found."}</div></Card>;
   }
 
-  const { booking, event, tickets } = data;
+  const { booking, event, tickets, payment } = data;
   const groupedTickets = Object.values(
-    tickets.reduce<Record<string, { categoryName: string; quantity: number; usedCount: number }>>((accumulator, ticket) => {
+    tickets.reduce<Record<string, { categoryName: string; quantity: number; usedCount: number; cancelledCount: number }>>((accumulator, ticket) => {
       if (!accumulator[ticket.seatLabel]) {
-        accumulator[ticket.seatLabel] = { categoryName: ticket.seatLabel, quantity: 0, usedCount: 0 };
+        accumulator[ticket.seatLabel] = { categoryName: ticket.seatLabel, quantity: 0, usedCount: 0, cancelledCount: 0 };
       }
       accumulator[ticket.seatLabel].quantity += 1;
       if (ticket.ticketStatus === "USED") {
         accumulator[ticket.seatLabel].usedCount += 1;
+      }
+      if (ticket.ticketStatus === "CANCELLED") {
+        accumulator[ticket.seatLabel].cancelledCount += 1;
       }
       return accumulator;
     }, {})
@@ -103,6 +115,36 @@ export function BookingDetail({ bookingId }: { bookingId: string }) {
       </Card>
 
       <Card>
+        <div className="eyebrow">Payment</div>
+        <div className="details-list" style={{ marginTop: 12 }}>
+          <div className="details-row">
+            <div className="details-key">Payment ID</div>
+            <div className="details-value mono">{payment?.paymentId ?? booking.paymentId ?? "Not found"}</div>
+          </div>
+          <div className="details-row">
+            <div className="details-key">Status</div>
+            <div className="details-value">{payment?.paymentStatus ?? booking.bookingStatus}</div>
+          </div>
+          <div className="details-row">
+            <div className="details-key">Paid amount</div>
+            <div className="details-value">{formatCurrency(payment?.amountPaid ?? booking.totalAmount)}</div>
+          </div>
+          <div className="details-row">
+            <div className="details-key">Mode</div>
+            <div className="details-value">{payment?.paymentGatewayCode ?? "Not found"}</div>
+          </div>
+          <div className="details-row">
+            <div className="details-key">Paid at</div>
+            <div className="details-value">{payment?.paidAt ? formatDateTime(payment.paidAt) : "Not recorded"}</div>
+          </div>
+          <div className="details-row">
+            <div className="details-key">Refund status</div>
+            <div className="details-value">{refundStatusLabel(payment?.paymentStatus)}</div>
+          </div>
+        </div>
+      </Card>
+
+      <Card>
         <div className="eyebrow">Ticket Breakdown</div>
         <table className="table" style={{ marginTop: 12 }}>
           <thead>
@@ -110,6 +152,7 @@ export function BookingDetail({ bookingId }: { bookingId: string }) {
               <th>Category</th>
               <th>Quantity</th>
               <th>Used</th>
+              <th>Cancelled</th>
             </tr>
           </thead>
           <tbody>
@@ -118,6 +161,7 @@ export function BookingDetail({ bookingId }: { bookingId: string }) {
                 <td>{row.categoryName}</td>
                 <td>{row.quantity}</td>
                 <td>{row.usedCount}</td>
+                <td>{row.cancelledCount}</td>
               </tr>
             ))}
           </tbody>
@@ -134,6 +178,10 @@ export function BookingDetail({ bookingId }: { bookingId: string }) {
           <div style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
             <span style={{ width: 10, height: 10, borderRadius: "50%", background: "var(--danger)", display: "inline-block" }} />
             <span className="muted">Used</span>
+          </div>
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+            <span style={{ width: 10, height: 10, borderRadius: "50%", background: "var(--text-soft)", display: "inline-block" }} />
+            <span className="muted">Cancelled</span>
           </div>
         </div>
         <table className="table" style={{ marginTop: 12 }}>
