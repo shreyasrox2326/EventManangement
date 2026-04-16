@@ -1298,6 +1298,7 @@ export const emtsApi = {
       const eventPayments = payments.filter((payment) => eventBookings.some((booking) => booking.bookingId === payment.bookingId));
       const checkedInCount = eventTickets.filter((ticket) => ticket.ticketStatus === "USED").length;
       const cancelledTickets = eventTickets.filter((ticket) => ticket.ticketStatus === "CANCELLED").length;
+      const soldTickets = eventTickets.filter((ticket) => ticket.ticketStatus !== "CANCELLED").length;
       const previous = previousEventState[event.eventId];
       const expenseBuckets = previous?.expenseBuckets ?? [];
       const totalExpenses = expenseBuckets.reduce((sum: number, bucket: { amount: number }) => sum + bucket.amount, 0);
@@ -1319,11 +1320,11 @@ export const emtsApi = {
         startDateTime: event.startDateTime,
         status: event.status,
         seatCapacity: event.seatCapacity,
-        ticketsSold: Math.max(event.seatCapacity - event.ticketCategories.reduce((sum, category) => sum + category.availableQuantity, 0), 0),
+        ticketsSold: soldTickets,
         checkedInCount,
         cancelledTickets,
-        occupancyPercentage: event.occupancyPercentage,
-        noShowPercentage: eventTickets.length > 0 ? ((eventTickets.length - checkedInCount - cancelledTickets) / eventTickets.length) * 100 : 0,
+        occupancyPercentage: event.seatCapacity > 0 ? (soldTickets / event.seatCapacity) * 100 : 0,
+        noShowPercentage: soldTickets > 0 ? Math.max(((soldTickets - checkedInCount) / soldTickets) * 100, 0) : 0,
         grossRevenue: eventPayments.reduce((sum, payment) => sum + payment.amountPaid, 0),
         refundedAmount: eventPayments.filter((payment) => payment.paymentStatus.startsWith("refunded")).reduce((sum, payment) => sum + payment.amountPaid, 0),
         totalExpenses,
@@ -1346,7 +1347,7 @@ export const emtsApi = {
           };
         })
       };
-    });
+    }).sort((left, right) => getDateTimeMillis(left.startDateTime) - getDateTimeMillis(right.startDateTime));
 
     return this.createReport({
       organizerId,

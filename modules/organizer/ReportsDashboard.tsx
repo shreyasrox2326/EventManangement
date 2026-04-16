@@ -106,7 +106,6 @@ export function ReportsDashboard() {
         const visibleSold = visibleCategories.reduce((sum, category) => sum + category.soldQuantity, 0);
         const visibleUsed = visibleCategories.reduce((sum, category) => sum + category.usedTickets, 0);
         const visibleCancelled = visibleCategories.reduce((sum, category) => sum + category.cancelledTickets, 0);
-        const visibleRevenue = visibleCategories.reduce((sum, category) => sum + category.revenue, 0);
 
         return {
           ...event,
@@ -114,14 +113,14 @@ export function ReportsDashboard() {
           ticketsSold: visibleSold,
           checkedInCount: visibleUsed,
           cancelledTickets: visibleCancelled,
-          grossRevenue: visibleRevenue,
-          netRevenue: visibleRevenue - (event.totalExpenses ?? 0),
+          grossRevenue: event.grossRevenue,
+          netRevenue: event.grossRevenue - (event.totalExpenses ?? 0),
           occupancyPercentage: visibleCapacity > 0 ? (visibleSold / visibleCapacity) * 100 : 0,
           noShowPercentage: visibleSold > 0 ? Math.max(((visibleSold - visibleUsed - visibleCancelled) / visibleSold) * 100, 0) : 0,
           categories: visibleCategories
         };
       })
-      .sort((left, right) => new Date(right.startDateTime).getTime() - new Date(left.startDateTime).getTime());
+      .sort((left, right) => new Date(left.startDateTime).getTime() - new Date(right.startDateTime).getTime());
 
     return selectedEventFilter === "all" ? sorted : sorted.filter((event) => event.eventId === selectedEventFilter);
   }, [excludeInternalUsage, selectedData, selectedEventFilter]);
@@ -129,7 +128,7 @@ export function ReportsDashboard() {
   const chartEvents =
     chartWindow === "all"
       ? filteredEvents
-      : filteredEvents.slice(0, chartWindow);
+      : filteredEvents.slice(-chartWindow);
 
   const selectedExpenseEvent = selectedEventFilter === "all" ? null : filteredEvents[0] ?? null;
   const attendanceScopes = useMemo(() => {
@@ -499,8 +498,10 @@ export function ReportsDashboard() {
               <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
                 <select className="select" value={selectedEventFilter} onChange={(event) => setSelectedEventFilter(event.target.value)} style={{ minWidth: 240 }}>
                   <option value="all">All events</option>
-                  {selectedData.events.map((event) => (
-                  <option key={event.eventId} value={event.eventId}>
+                  {[...selectedData.events]
+                    .sort((left, right) => new Date(left.startDateTime).getTime() - new Date(right.startDateTime).getTime())
+                    .map((event) => (
+                    <option key={event.eventId} value={event.eventId}>
                       {event.title}
                     </option>
                   ))}

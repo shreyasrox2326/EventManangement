@@ -7,7 +7,7 @@ import { PortalShell } from "@/components/navigation/PortalShell";
 const customerNav = [
   { label: "Dashboard", href: "/customer" },
   { label: "Browse Events", href: "/customer/events" },
-  { label: "Active Tickets", href: "/customer/tickets" },
+  { label: "Live Tickets", href: "/customer/tickets" },
   { label: "Purchase History", href: "/customer/history" },
   { label: "Notifications", href: "/customer/notifications" }
 ];

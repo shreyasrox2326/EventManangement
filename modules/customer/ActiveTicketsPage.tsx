@@ -4,6 +4,7 @@ import { useAuth } from "@/app/providers";
 import { GroupedTicketsView } from "@/components/tickets/GroupedTicketsView";
 import { emtsApi } from "@/services/live-api";
 import { useAsyncResource } from "@/services/use-async-resource";
+import { isEventStillLive } from "@/utils/ticketing";
 
 export function ActiveTicketsPage() {
   const { session } = useAuth();
@@ -12,13 +13,12 @@ export function ActiveTicketsPage() {
     const bookings = await emtsApi.getUserBookings(customerId);
     const tickets = (await Promise.all(bookings.map((booking) => emtsApi.getTicketsByBooking(booking.bookingId)))).flat();
     const events = await emtsApi.getEvents();
-    const now = Date.now();
     const visibleTickets = tickets.filter((ticket) => ticket.ticketStatus === "ACTIVE" || ticket.ticketStatus === "USED");
 
     return Object.values(
       visibleTickets.reduce<Record<string, { eventId: string; eventName: string; eventDate?: string; tickets: typeof visibleTickets }>>((accumulator, ticket) => {
         const event = events.find((entry) => entry.eventId === ticket.eventId);
-        if (!event || new Date(event.endDateTime).getTime() <= now) {
+        if (!event || !isEventStillLive(event)) {
           return accumulator;
         }
         if (!accumulator[ticket.eventId]) {
@@ -38,8 +38,8 @@ export function ActiveTicketsPage() {
   return (
     <>
       {error && <div className="badge">{error}</div>}
-      {isLoading && !data && <div className="card"><div className="muted">Loading active tickets...</div></div>}
-      <GroupedTicketsView eyebrow="Active Tickets" title="Tickets ready to use" groups={data ?? []} />
+      {isLoading && !data && <div className="card"><div className="muted">Loading live tickets...</div></div>}
+      <GroupedTicketsView eyebrow="Live Tickets" title="Tickets for events that have not ended" groups={data ?? []} />
     </>
   );
 }

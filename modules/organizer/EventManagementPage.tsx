@@ -81,6 +81,8 @@ export function EventManagementPage() {
   const { data: corporateRequestsData } = useAsyncResource(() => emtsApi.getCorporateRequestsForOrganizer(organizerId), [organizerId, refreshKey]);
   const { data: corporateProfilesData } = useAsyncResource(() => emtsApi.getCorporateProfiles(), [refreshKey]);
   const { data: usersData } = useAsyncResource(() => emtsApi.getUsers(), [refreshKey]);
+  const { data: bookingsData } = useAsyncResource(() => emtsApi.getBookings(), [refreshKey]);
+  const { data: paymentsData } = useAsyncResource(() => emtsApi.getPayments(), [refreshKey]);
   const { data: staffAssignmentsData } = useAsyncResource(
     async () =>
       Object.fromEntries(
@@ -98,6 +100,8 @@ export function EventManagementPage() {
   const corporateRequests = corporateRequestsData ?? [];
   const corporateProfiles = corporateProfilesData ?? [];
   const users = usersData ?? [];
+  const bookings = bookingsData ?? [];
+  const payments = paymentsData ?? [];
   const staffAssignmentsByEvent = staffAssignmentsData ?? {};
   const staffUsers = users.filter((user) => user.roleCode === "STAFF");
 
@@ -250,10 +254,10 @@ export function EventManagementPage() {
 
       {sortedEvents.map((event) => {
         const isExpanded = expandedEventId === event.eventId;
-        const computedRevenue = event.ticketCategories.reduce(
-          (sum, category) => sum + ((category.capacity - category.availableQuantity) * category.unitPrice),
-          0
-        );
+        const eventBookings = bookings.filter((booking) => booking.eventId === event.eventId);
+        const computedRevenue = payments
+          .filter((payment) => eventBookings.some((booking) => booking.bookingId === payment.bookingId))
+          .reduce((sum, payment) => sum + payment.amountPaid, 0);
         const refundPolicy = refundPolicies.find((policy) => policy.eventId === event.eventId) ?? null;
         const organizerStatus = getOrganizerStatus(event);
         const eventCorporateRequests = corporateRequests.filter((request) => request.eventId === event.eventId);

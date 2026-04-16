@@ -39,7 +39,8 @@ export function OrganizerDashboard() {
   const corporateProfiles = corporateProfilesData ?? [];
   const latestFiveEvents = [...organizerEvents]
     .sort((left, right) => new Date(right.startDateTime).getTime() - new Date(left.startDateTime).getTime())
-    .slice(0, 5);
+    .slice(0, 5)
+    .sort((left, right) => new Date(left.startDateTime).getTime() - new Date(right.startDateTime).getTime());
   const publishedEvents = latestFiveEvents.filter((event) => event.status.toUpperCase() === "PUBLISHED");
   const organizerBookings = bookings.filter((booking) => organizerEvents.some((event) => event.eventId === booking.eventId));
   const organizerPayments = payments.filter((payment) => organizerBookings.some((booking) => booking.bookingId === payment.bookingId));
@@ -57,7 +58,7 @@ export function OrganizerDashboard() {
       ? publishedEvents.reduce((sum, event) => {
           const publicCategories = event.ticketCategories.filter((category) => !isInternalUseCategoryName(category.displayName));
           const publicCapacity = publicCategories.reduce((categorySum, category) => categorySum + category.capacity, 0);
-          const publicSold = publicCategories.reduce((categorySum, category) => categorySum + (category.capacity - category.availableQuantity), 0);
+          const publicSold = organizerTickets.filter((ticket) => ticket.eventId === event.eventId && ticket.ticketStatus !== "CANCELLED").length;
           return sum + (publicCapacity > 0 ? (publicSold / publicCapacity) * 100 : 0);
         }, 0) / publishedEvents.length
       : 0;
@@ -180,7 +181,7 @@ export function OrganizerDashboard() {
                 value: (() => {
                   const publicCategories = event.ticketCategories.filter((category) => !isInternalUseCategoryName(category.displayName));
                   const publicCapacity = publicCategories.reduce((sum, category) => sum + category.capacity, 0);
-                  const publicSold = publicCategories.reduce((sum, category) => sum + (category.capacity - category.availableQuantity), 0);
+                  const publicSold = organizerTickets.filter((ticket) => ticket.eventId === event.eventId && ticket.ticketStatus !== "CANCELLED").length;
                   return Number((publicCapacity > 0 ? (publicSold / publicCapacity) * 100 : 0).toFixed(1));
                 })()
               }))}

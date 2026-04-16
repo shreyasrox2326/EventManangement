@@ -10,6 +10,8 @@ import { SectionHeader } from "@/components/ui/SectionHeader";
 import { emtsApi } from "@/services/live-api";
 import { useAsyncResource } from "@/services/use-async-resource";
 import { formatCurrency, formatDate } from "@/utils/format";
+import { getDateTimeMillis } from "@/utils/date-time";
+import { isEventStillLive } from "@/utils/ticketing";
 
 export function CustomerDashboard() {
   const { session } = useAuth();
@@ -26,17 +28,42 @@ export function CustomerDashboard() {
   const customerBookings = customerBookingsData ?? [];
   const customerNotifications = customerNotificationsData ?? [];
   const customerTickets = customerTicketsData ?? [];
+  const livePublishedEvents = useMemo(
+    () => publishedEvents.filter((event) => isEventStillLive(event)),
+    [publishedEvents]
+  );
+  const eventsById = useMemo(
+    () => new Map(publishedEvents.map((event) => [event.eventId, event])),
+    [publishedEvents]
+  );
+  const curatedUpcomingEvents = useMemo(
+    () =>
+      livePublishedEvents
+        .filter((event) => {
+          const startMillis = getDateTimeMillis(event.startDateTime);
+          return Number.isFinite(startMillis) && startMillis > Date.now();
+        })
+        .sort((left, right) => getDateTimeMillis(left.startDateTime) - getDateTimeMillis(right.startDateTime))
+        .slice(0, 6),
+    [livePublishedEvents]
+  );
   const unreadCount = useMemo(
     () => customerNotifications.length,
     [customerNotifications]
   );
-  const activeTickets = customerTickets.filter((ticket) => ticket.ticketStatus === "ACTIVE").length;
+  const liveTickets = customerTickets.filter((ticket) => {
+    if (ticket.ticketStatus === "CANCELLED" || ticket.ticketStatus === "INVALID") {
+      return false;
+    }
+    const event = eventsById.get(ticket.eventId);
+    return event ? isEventStillLive(event) : false;
+  }).length;
 
-  if (isLoadingEvents && publishedEvents.length === 0) {
+  if (isLoadingEvents && livePublishedEvents.length === 0) {
     return <Card><div className="muted">Loading your live dashboard...</div></Card>;
   }
 
-  if (publishedEvents.length === 0) {
+  if (livePublishedEvents.length === 0) {
     return <Card><div className="muted">No live published events are available yet.</div></Card>;
   }
 
@@ -56,11 +83,11 @@ export function CustomerDashboard() {
 
       <div className="metrics-grid">
         <Link href="/customer/tickets" style={{ color: "inherit" }}>
-          <StatCard label="Active Tickets" value={`${activeTickets}`} caption="Open your current active tickets" icon={<QrCode size={22} />} />
+          <StatCard label="Live Tickets" value={`${liveTickets}`} caption="Tickets for events that have not ended" icon={<QrCode size={22} />} />
         </Link>
         <StatCard label="Event Notices" value={`${unreadCount}`} caption="Notifications attached to your booked events" icon={<Bell size={22} />} />
         <StatCard label="Bookings" value={`${customerBookings.length}`} caption="Bookings recorded for this account" icon={<QrCode size={22} />} />
-        <StatCard label="Published Events" value={`${publishedEvents.length}`} caption="Upcoming live events visible right now" icon={<Search size={22} />} />
+        <StatCard label="Published Events" value={`${livePublishedEvents.length}`} caption="Published events that have not ended" icon={<Search size={22} />} />
       </div>
 
       <div className="two-column">
@@ -106,7 +133,7 @@ export function CustomerDashboard() {
           </Link>
         </div>
         <div className="event-grid" style={{ marginTop: 18 }}>
-          {publishedEvents.map((event) => (
+          {curatedUpcomingEvents.map((event) => (
             <Link key={event.eventId} href={`/customer/events/${event.eventId}`} className="card" style={{ padding: 18, display: "grid", gap: 12 }}>
               <div
                 style={{
