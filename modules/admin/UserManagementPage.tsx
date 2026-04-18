@@ -29,6 +29,20 @@ const roleLabels: Record<UserRole, string> = {
   CORPORATE_CLIENT: "Corporate Client"
 };
 
+const userDetailPillStyle = {
+  justifyContent: "space-between",
+  alignItems: "flex-start",
+  flexWrap: "wrap",
+  width: "100%"
+} as const;
+
+const userDetailValueStyle = {
+  flex: "1 1 180px",
+  minWidth: 0,
+  overflowWrap: "anywhere",
+  textAlign: "right"
+} as const;
+
 function matchesUser(user: User, field: SearchField, query: string, matchMode: MatchMode) {
   const value = String(user[field] ?? "").trim().toLowerCase();
   const normalizedQuery = query.trim().toLowerCase();
@@ -255,21 +269,21 @@ export function UserManagementPage() {
 
           {selectedUser && (
             <div className="grid" style={{ gap: 14 }}>
-              <div className="pill" style={{ justifyContent: "space-between" }}>
+              <div className="pill" style={userDetailPillStyle}>
                 <span>Name</span>
-                <strong>{selectedUser.fullName}</strong>
+                <strong style={userDetailValueStyle}>{selectedUser.fullName}</strong>
               </div>
-              <div className="pill" style={{ justifyContent: "space-between" }}>
+              <div className="pill" style={userDetailPillStyle}>
                 <span>Email</span>
-                <strong>{selectedUser.emailAddress}</strong>
+                <strong style={userDetailValueStyle}>{selectedUser.emailAddress}</strong>
               </div>
-              <div className="pill" style={{ justifyContent: "space-between" }}>
+              <div className="pill" style={userDetailPillStyle}>
                 <span>Phone</span>
-                <strong>{selectedUser.phoneNumber}</strong>
+                <strong style={userDetailValueStyle}>{selectedUser.phoneNumber}</strong>
               </div>
-              <div className="pill" style={{ justifyContent: "space-between" }}>
+              <div className="pill" style={userDetailPillStyle}>
                 <span>User ID</span>
-                <strong>{selectedUser.userId}</strong>
+                <strong style={userDetailValueStyle}>{selectedUser.userId}</strong>
               </div>
 
               <label>
