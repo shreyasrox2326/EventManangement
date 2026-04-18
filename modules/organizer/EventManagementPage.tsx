@@ -475,6 +475,7 @@ export function EventManagementPage() {
                             <option value="">Select staff user</option>
                             {filteredStaffUsers.map((user) => (
                               <option key={user.userId} value={user.userId}>
+                                ({user.userId}){" "}
                                 {[user.fullName, user.emailAddress].join(" · ")}
                               </option>
                             ))}
@@ -492,6 +493,7 @@ export function EventManagementPage() {
                         <tr>
                           <th>Name</th>
                           <th>Email</th>
+                          <th>User ID</th>
                           <th>Assigned At</th>
                         </tr>
                       </thead>
@@ -502,6 +504,7 @@ export function EventManagementPage() {
                             <tr key={assignment.assignmentId}>
                               <td>{staffUser?.fullName ?? assignment.staffUserId}</td>
                               <td>{staffUser?.emailAddress ?? "-"}</td>
+                              <td>{assignment.staffUserId}</td>
                               <td>{formatDateTime(assignment.assignedAt)}</td>
                             </tr>
                           );

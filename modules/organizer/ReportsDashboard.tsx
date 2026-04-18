@@ -502,7 +502,7 @@ export function ReportsDashboard() {
                     .sort((left, right) => new Date(left.startDateTime).getTime() - new Date(right.startDateTime).getTime())
                     .map((event) => (
                     <option key={event.eventId} value={event.eventId}>
-                      {event.title}
+                      {event.title} ({event.eventId})
                     </option>
                   ))}
                 </select>

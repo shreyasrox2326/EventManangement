@@ -105,7 +105,7 @@ export function BulkBookingManagement() {
             <select className="select" value={eventId} onChange={(currentEvent) => setEventId(currentEvent.target.value)}>
               <option value="">Select event</option>
               {events.map((event) => (
-                <option key={event.eventId} value={event.eventId}>{event.title}</option>
+                <option key={event.eventId} value={event.eventId}>{event.title} ({event.eventId})</option>
               ))}
             </select>
           </label>

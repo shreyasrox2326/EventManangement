@@ -257,7 +257,7 @@ export function StaffScannerPage() {
             <select className="select" value={selectedEvent?.eventId ?? ""} onChange={(event) => setSelectedEventId(event.target.value)}>
               {assignedEvents.map((event) => (
                 <option key={event.eventId} value={event.eventId}>
-                  {event.title}
+                  {event.title} ({event.eventId})
                 </option>
               ))}
             </select>
