@@ -15,6 +15,7 @@ import {
   PasswordResetCompleteDto,
   Refund,
   RefundPolicy,
+  RefundStatus,
   ReportRecord,
   VerifyOtpRequestDto,
   StaffEventAssignment,
@@ -153,6 +154,21 @@ interface BackendReport {
   generatedDate: string;
   data: string;
   organizerId: string;
+}
+
+interface BackendBulkActionResult {
+  action: string;
+  eventId?: string;
+  bookingId?: string;
+  ticketId?: string;
+  status?: string;
+  refundMode?: string;
+  paymentStatus?: string;
+  eligibleAmount?: number;
+  approvedAmount?: number;
+  payment?: BackendPayment;
+  ticket?: BackendTicket;
+  tickets?: BackendTicket[];
 }
 
 interface BackendOrganizer {
@@ -600,6 +616,10 @@ function getCancellationOutcome(event: Event, policy: RefundPolicy) {
   return { allowed: true, mode: "none" as const };
 }
 
+function toRefundStatus(paymentStatus?: string): RefundStatus {
+  return paymentStatus?.toLowerCase().startsWith("refunded") ? "PROCESSED" : "REJECTED";
+}
+
 export const emtsApi = {
   async getUsers(): Promise<User[]> {
     return (await getAllUsersRaw()).map(mapUser);
@@ -976,46 +996,7 @@ export const emtsApi = {
   },
 
   async deleteEvent(eventId: string) {
-    const [bookings, tickets, payments] = await Promise.all([
-      getAllBookingsRaw(),
-      getAllTicketsRaw(),
-      getAllPaymentsRaw()
-    ]);
-
-    const eventBookings = bookings.filter((booking) => booking.eventId === eventId);
-    const bookingIds = new Set(eventBookings.map((booking) => booking.bookingId));
-    const eventTickets = tickets.filter((ticket) => bookingIds.has(ticket.bookingId));
-    const eventPayments = payments.filter((payment) => bookingIds.has(payment.bookingId));
-
-    for (const ticket of eventTickets) {
-      if ((ticket.status ?? "").toLowerCase() !== "cancelled") {
-        await this.updateTicketStatus(ticket.ticketId ?? "", "cancelled");
-      }
-    }
-
-    for (const payment of eventPayments) {
-      const normalized = payment.status.toLowerCase();
-      if (!normalized.startsWith("refunded") && normalized !== "no_refund") {
-        await this.processRefund(payment.paymentId);
-      }
-    }
-
-    for (const booking of eventBookings) {
-      await requestJson("/bookings", {
-        method: "POST",
-        body: JSON.stringify({
-          bookingId: booking.bookingId,
-          userId: booking.userId,
-          eventId: booking.eventId,
-          quantity: booking.quantity,
-          totalCost: booking.totalCost,
-          paymentStatus: "cancelled",
-          bookingTimestamp: booking.bookingTimestamp
-        })
-      });
-    }
-
-    await requestJson(`/events/${eventId}`, { method: "DELETE" });
+    await requestJson<BackendBulkActionResult>(`/events/${eventId}`, { method: "DELETE" });
   },
 
   async createReport(report: OrganizerReportData): Promise<ReportRecord> {
@@ -1140,63 +1121,20 @@ export const emtsApi = {
   },
 
   async cancelTicket(ticketId: string) {
-    const ticket = await this.getTicketById(ticketId);
-    if (!ticket) throw new Error("Ticket not found.");
-    if (ticket.ticketStatus === "CANCELLED") throw new Error("Ticket is already cancelled.");
-    if (ticket.ticketStatus === "USED") throw new Error("Used tickets cannot be cancelled.");
-
-    const [booking, payment, event, policy, categories] = await Promise.all([
-      this.getBookingById(ticket.bookingId),
-      this.getPaymentByBooking(ticket.bookingId),
-      this.getEventById(ticket.eventId),
-      this.getRefundPolicyByEvent(ticket.eventId),
-      getAllCategoriesRaw()
-    ]);
-
-    if (!booking || !payment || !event || !policy) {
-      throw new Error("Cancellation data is incomplete for this ticket.");
-    }
-
-    const cancellationOutcome = getCancellationOutcome(event, policy);
-    if (!cancellationOutcome.allowed) {
-      throw new Error("Tickets can no longer be cancelled after the event has ended.");
-    }
-
-    const updatedTicket = await this.updateTicketStatus(ticket.ticketId, "cancelled");
-    const category = categories.find((entry) => entry.categoryId === ticket.ticketCategoryId);
-
-    if (category) {
-      await this.upsertTicketCategory({ ...category, availableQty: category.availableQty + 1 });
-    }
-
-    const updatedPayment =
-      cancellationOutcome.mode === "none"
-        ? await this.updatePaymentStatus(payment.paymentId, "no_refund")
-        : await this.processRefund(payment.paymentId);
-
-    await this.createNotification({
-      eventId: ticket.eventId,
-      userId: booking.customerId,
-      type: "refund",
-      message:
-        cancellationOutcome.mode === "none"
-          ? `Ticket ${ticket.ticketId} was cancelled. The seat was released back to inventory, but no refund applied because the refund window has closed.`
-          : `Ticket ${ticket.ticketId} was cancelled. Payment status: ${updatedPayment.paymentStatus}.`,
-      audienceScope: "DIRECT"
-    });
+    const result = await requestJson<BackendBulkActionResult>(`/tickets/${ticketId}/cancel`, { method: "POST" });
+    const [bookings, categories] = await Promise.all([getAllBookingsRaw(), getAllCategoriesRaw()]);
+    const backendTicket = result.ticket ?? await getTicketRawById(ticketId);
+    const updatedTicket = mapTicket(backendTicket, bookings, categories);
+    const updatedPayment = result.payment ? mapPayment(result.payment) : await this.getPaymentByBooking(updatedTicket.bookingId);
+    if (!updatedPayment) throw new Error("Ticket was cancelled, but payment details could not be reloaded.");
 
     const refund: Refund = {
       refundId: updatedPayment.paymentId,
-      bookingId: booking.bookingId,
-      refundStatus:
-        updatedPayment.paymentStatus.startsWith("refunded")
-          ? "PROCESSED"
-          : updatedPayment.paymentStatus === "no_refund"
-            ? "REJECTED"
-            : "REJECTED",
-      eligibleAmount: payment.amountPaid,
-      approvedAmount: updatedPayment.amountPaid,
-      refundReason: cancellationOutcome.mode === "none" ? "Ticket cancellation after refund window closed" : "Ticket cancellation",
+      bookingId: updatedTicket.bookingId,
+      refundStatus: toRefundStatus(updatedPayment.paymentStatus),
+      eligibleAmount: Number(result.eligibleAmount ?? updatedPayment.amountPaid),
+      approvedAmount: Number(result.approvedAmount ?? updatedPayment.amountPaid),
+      refundReason: result.refundMode === "none" ? "Ticket cancellation after refund window closed" : "Ticket cancellation",
       requestedAt: new Date().toISOString(),
       processedAt: new Date().toISOString()
     };
@@ -1205,66 +1143,11 @@ export const emtsApi = {
   },
 
   async cancelBooking(bookingId: string) {
-    const tickets = await this.getTicketsByBooking(bookingId);
-    if (tickets.length === 0) {
-      throw new Error("No tickets were found for this booking.");
-    }
-
-    const [payment, booking, event, policy, categories] = await Promise.all([
-      this.getPaymentByBooking(bookingId),
-      this.getBookingById(bookingId),
-      this.getEventById(tickets[0].eventId),
-      this.getRefundPolicyByEvent(tickets[0].eventId),
-      getAllCategoriesRaw()
-    ]);
-    const eventId = tickets[0].eventId;
-
-    if (!payment || !booking || !event || !policy) {
-      throw new Error("Cancellation data is incomplete for this booking.");
-    }
-
-    const activeTickets = tickets.filter((ticket) => ticket.ticketStatus === "ACTIVE");
-    if (activeTickets.length === 0) {
-      throw new Error("No active tickets remain in this booking.");
-    }
-
-    const cancellationOutcome = getCancellationOutcome(event, policy);
-    if (!cancellationOutcome.allowed) {
-      throw new Error("Tickets can no longer be cancelled after the event has ended.");
-    }
-
-    const cancelledTickets = [];
-    const releaseCounts: Record<string, number> = {};
-    for (const ticket of activeTickets) {
-      const updatedTicket = await this.updateTicketStatus(ticket.ticketId, "cancelled");
-      releaseCounts[ticket.ticketCategoryId] = (releaseCounts[ticket.ticketCategoryId] ?? 0) + 1;
-      cancelledTickets.push(updatedTicket);
-    }
-
-    await Promise.all(
-      Object.entries(releaseCounts).map(async ([categoryId, releasedCount]) => {
-        const category = categories.find((entry) => entry.categoryId === categoryId);
-        if (category) {
-          await this.upsertTicketCategory({ ...category, availableQty: category.availableQty + releasedCount });
-        }
-      })
-    );
-
-    const updatedPayment =
-      cancellationOutcome.mode === "none"
-        ? await this.updatePaymentStatus(payment.paymentId, "no_refund")
-        : await this.processRefund(payment.paymentId);
-
-    await this.createNotification({
-      eventId,
-      userId: booking?.customerId,
-      type: "refund",
-      message:
-        cancellationOutcome.mode === "none"
-          ? `Booking ${bookingId} was cancelled. The seats were released back to inventory, but no refund applied because the refund window has closed.`
-          : `Booking ${bookingId} was cancelled and all associated tickets were refunded where eligible.`,
-      audienceScope: "DIRECT"
-    });
+    const result = await requestJson<BackendBulkActionResult>(`/bookings/${bookingId}/cancel`, { method: "POST" });
+    const [bookings, categories] = await Promise.all([getAllBookingsRaw(), getAllCategoriesRaw()]);
+    const cancelledTickets = (result.tickets ?? []).map((ticket) => mapTicket(ticket, bookings, categories));
+    const updatedPayment = result.payment ? mapPayment(result.payment) : await this.getPaymentByBooking(bookingId);
+    if (!updatedPayment) throw new Error("Booking was cancelled, but payment details could not be reloaded.");
 
     return { bookingId, payment: updatedPayment, tickets: cancelledTickets };
   },
