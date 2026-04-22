@@ -10,3 +10,4 @@ postman/
 .env.production.local
 .env.test.local
 !.env.example
+VIVA_PREP_SHORT_NOTES.md
