@@ -12,7 +12,12 @@ export const isInternalUseCategory = (category: Pick<TicketCategory, "displayNam
 
 export const getSellableCategories = (event: Event) => event.ticketCategories.filter((category) => !isInternalUseCategory(category));
 
-export const isEventStillLive = (event: Pick<Event, "endDateTime">) => {
+export const isEventStillLive = (event: Pick<Event, "endDateTime"> & Partial<Pick<Event, "status">>) => {
+  const normalizedStatus = event.status?.trim().toLowerCase();
+  if (normalizedStatus === "deleted" || normalizedStatus === "cancelled") {
+    return false;
+  }
+
   const endMillis = getDateTimeMillis(event.endDateTime);
   return Number.isFinite(endMillis) ? endMillis > Date.now() : true;
 };

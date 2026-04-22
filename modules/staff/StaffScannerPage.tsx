@@ -101,6 +101,7 @@ export function StaffScannerPage() {
   const scannerControlsRef = useRef<IScannerControls | null>(null);
   const lastScanRef = useRef<{ value: string; at: number } | null>(null);
   const isProcessingScanRef = useRef(false);
+  const selectedEventIdRef = useRef("");
 
   useEffect(() => {
     readerRef.current = new BrowserQRCodeReader();
@@ -115,6 +116,7 @@ export function StaffScannerPage() {
     if (!selectedEventId) {
       setScanState(null);
     }
+    selectedEventIdRef.current = selectedEventId;
   }, [selectedEventId]);
 
   const { data: assignmentsData } = useAsyncResource(() => emtsApi.getStaffAssignmentsByUser(staffUserId), [staffUserId]);
@@ -135,10 +137,23 @@ export function StaffScannerPage() {
   useEffect(() => {
     if (!selectedEventId && assignedEvents[0]) {
       setSelectedEventId(assignedEvents[0].eventId);
+      selectedEventIdRef.current = assignedEvents[0].eventId;
+      return;
+    }
+
+    if (selectedEventId && !assignedEvents.some((event) => event.eventId === selectedEventId)) {
+      const nextEventId = assignedEvents[0]?.eventId ?? "";
+      setSelectedEventId(nextEventId);
+      selectedEventIdRef.current = nextEventId;
+      setScanState(null);
+      scannerControlsRef.current?.stop();
+      scannerControlsRef.current = null;
+      setIsScanning(false);
+      setCameraMessage(nextEventId ? "Selected event is no longer available. Switched to the next assigned event." : "No live assigned events are available.");
     }
   }, [assignedEvents, selectedEventId]);
 
-  const handleDecodedValue = async (rawValue: string) => {
+  const handleDecodedValue = async (rawValue: string, expectedEventId: string) => {
     try {
       const normalizedValue = rawValue.trim();
       const lastScan = lastScanRef.current;
@@ -155,8 +170,8 @@ export function StaffScannerPage() {
       isProcessingScanRef.current = true;
 
       const result = autoMarkPresent
-        ? await emtsApi.scanAndMarkTicket(normalizedValue, selectedEvent?.eventId)
-        : await emtsApi.validateTicket(normalizedValue, selectedEvent?.eventId);
+        ? await emtsApi.scanAndMarkTicket(normalizedValue, expectedEventId)
+        : await emtsApi.validateTicket(normalizedValue, expectedEventId);
       if (autoMarkPresent && result.outcome === "VALID" && result.ticket?.ticketId) {
         setLocallyUsedTicketIds((current) => new Set(current).add(result.ticket!.ticketId));
         setTicketsRefreshKey((current) => current + 1);
@@ -189,6 +204,8 @@ export function StaffScannerPage() {
         throw new Error("Scanner is not ready.");
       }
 
+      const expectedEventId = selectedEvent.eventId;
+      selectedEventIdRef.current = expectedEventId;
       setScanState(null);
       lastScanRef.current = null;
       scannerControlsRef.current?.stop();
@@ -197,7 +214,7 @@ export function StaffScannerPage() {
         videoRef.current,
         (result) => {
           if (result && !isProcessingScanRef.current) {
-            void handleDecodedValue(result.getText());
+            void handleDecodedValue(result.getText(), expectedEventId);
           }
         }
       );
@@ -232,7 +249,7 @@ export function StaffScannerPage() {
       const updatedValidation = await emtsApi.validateTicket(JSON.stringify({
         ticketId: updatedTicket.ticketId,
         qrCode: updatedTicket.qrCodeValue
-      }), selectedEvent?.eventId);
+      }), selectedEventIdRef.current || selectedEvent?.eventId);
       setScanState({
         ...updatedValidation,
         ticket: updatedTicket,
@@ -264,7 +281,21 @@ export function StaffScannerPage() {
         <div className="details-list" style={{ marginBottom: 18 }}>
           <label style={{ display: "grid", gap: 8 }}>
             <span className="eyebrow">Assigned event</span>
-            <select className="select" value={selectedEvent?.eventId ?? ""} onChange={(event) => setSelectedEventId(event.target.value)}>
+            <select
+              className="select"
+              value={selectedEvent?.eventId ?? ""}
+              onChange={(event) => {
+                const nextEventId = event.target.value;
+                selectedEventIdRef.current = nextEventId;
+                setSelectedEventId(nextEventId);
+                setScanState(null);
+                lastScanRef.current = null;
+                scannerControlsRef.current?.stop();
+                scannerControlsRef.current = null;
+                setIsScanning(false);
+                setCameraMessage("Event changed. Start camera scan when you are ready.");
+              }}
+            >
               {assignedEvents.map((event) => (
                 <option key={event.eventId} value={event.eventId}>
                   {event.title} ({event.eventId})
