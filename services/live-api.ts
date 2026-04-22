@@ -258,6 +258,19 @@ interface BackendInternalTicketIssueResponse {
   quantity: number;
 }
 
+interface BackendPage<T> {
+  content: T[];
+  totalElements: number;
+  totalPages: number;
+  number: number;
+  size: number;
+}
+
+interface BackendNotificationCount {
+  total: number;
+  unread: number;
+}
+
 const generateId = (prefix: string) => `${prefix}-${Math.random().toString(36).slice(2, 10)}`;
 
 const slugify = (value: string) =>
@@ -356,6 +369,19 @@ const getUserRawById = (userId: string) => requestJson<BackendUser>(`/users/${us
 const getTicketRawById = (ticketId: string) => requestJson<BackendTicket>(`/tickets/${ticketId}`);
 const getOrganizerProfileRaw = (userId: string) => requestJson<BackendOrganizer>(`/organizers/${userId}`);
 const getCorporateProfileRaw = (userId: string) => requestJson<BackendCorporate>(`/corporates/${userId}`);
+const getCategoriesByEventRaw = (eventId: string) => requestJson<BackendTicketCategory[]>(`/ticket-categories/event/${eventId}`);
+const getPolicyByEventRaw = (eventId: string) => requestJson<BackendRefundPolicy>(`/refund-policies/event/${eventId}`);
+const getBookingsByUserRaw = (userId: string) => requestJson<BackendBooking[]>(`/bookings/user/${userId}`);
+const getBookingsByEventRaw = (eventId: string) => requestJson<BackendBooking[]>(`/bookings/event/${eventId}`);
+const getTicketRawByBooking = (bookingId: string) => requestJson<BackendTicket[]>(`/tickets/booking/${bookingId}`);
+const getTicketRawByUser = (userId: string) => requestJson<BackendTicket[]>(`/tickets/user/${userId}`);
+const getTicketRawByEvent = (eventId: string) => requestJson<BackendTicket[]>(`/tickets/event/${eventId}`);
+const getPaymentRawByBooking = (bookingId: string) => requestJson<BackendPayment>(`/payments/booking/${bookingId}`);
+
+function toBackendRole(roleCode?: UserRole) {
+  if (!roleCode) return undefined;
+  return roleCode === "CORPORATE_CLIENT" ? "corporate" : roleCode.toLowerCase();
+}
 
 function mapUser(user: BackendUser): User {
   return {
@@ -562,22 +588,36 @@ function mapTicket(ticket: BackendTicket, bookings: BackendBooking[], categories
   };
 }
 
+async function mapTicketsWithScopedData(tickets: BackendTicket[], scopedBookings?: BackendBooking[]): Promise<Ticket[]> {
+  const bookings = scopedBookings ?? await getAllBookingsRaw();
+  const categoryIds = Array.from(new Set(tickets.map((ticket) => ticket.categoryId).filter(Boolean)));
+  const categories = await Promise.all(
+    categoryIds.map((categoryId) => requestJson<BackendTicketCategory>(`/ticket-categories/${categoryId}`).catch(() => null))
+  );
+  return tickets.map((ticket) => mapTicket(ticket, bookings, categories.filter((category): category is BackendTicketCategory => Boolean(category))));
+}
+
+async function buildEventFromRaw(event: BackendEvent): Promise<Event> {
+  const [categories, policy] = await Promise.all([
+    getCategoriesByEventRaw(event.eventId).catch(() => []),
+    getPolicyByEventRaw(event.eventId).catch(() => null)
+  ]);
+  return buildEvent(event, categories.map(mapCategory), policy ? [policy] : []);
+}
+
 async function buildTicketScanDetails(ticket: Ticket): Promise<TicketScanDetails | null> {
-  const [booking, event, category, allBookings, allTickets] = await Promise.all([
+  const [booking, event, category, eventTickets] = await Promise.all([
     requestJson<BackendBooking>(`/bookings/${ticket.bookingId}`),
     requestJson<BackendEvent>(`/events/${ticket.eventId}`),
     requestJson<BackendTicketCategory>(`/ticket-categories/${ticket.ticketCategoryId}`),
-    getAllBookingsRaw(),
-    getAllTicketsRaw()
-  ]).catch(() => [null, null, null, [] as BackendBooking[], [] as BackendTicket[]] as const);
+    getTicketRawByEvent(ticket.eventId)
+  ]).catch(() => [null, null, null, [] as BackendTicket[]] as const);
 
   if (!booking || !event || !category) {
     return null;
   }
 
   const bookingUser = await getUserRawById(booking.userId).catch(() => null);
-  const eventBookingIds = new Set(allBookings.filter((entry) => entry.eventId === event.eventId).map((entry) => entry.bookingId));
-  const eventTickets = allTickets.filter((entry) => eventBookingIds.has(entry.bookingId));
   const presentCount = eventTickets.filter((entry) => (entry.status ?? "").toLowerCase() === "used").length;
 
   return {
@@ -625,12 +665,22 @@ export const emtsApi = {
     return (await getAllUsersRaw()).map(mapUser);
   },
 
+  async searchUsers(params: { query?: string; roleCode?: UserRole; page?: number; size?: number } = {}): Promise<User[]> {
+    const searchParams = new URLSearchParams();
+    if (params.query?.trim()) searchParams.set("q", params.query.trim());
+    const backendRole = toBackendRole(params.roleCode);
+    if (backendRole) searchParams.set("role", backendRole);
+    searchParams.set("page", String(params.page ?? 0));
+    searchParams.set("size", String(params.size ?? 25));
+    return (await requestJson<BackendPage<BackendUser>>(`/users/search?${searchParams.toString()}`)).content.map(mapUser);
+  },
+
   async getUserByRole(roleCode: UserRole): Promise<User | null> {
     return (await this.getUsers()).find((user) => user.roleCode === roleCode) ?? null;
   },
 
   async updateUserRole(userId: string, roleCode: UserRole): Promise<User> {
-    const currentUser = (await getAllUsersRaw()).find((user) => user.user_id === userId);
+    const currentUser = await getUserRawById(userId).catch(() => null);
     if (!currentUser) {
       throw new Error("User not found.");
     }
@@ -714,11 +764,40 @@ export const emtsApi = {
   },
 
   async getPublishedEvents(): Promise<Event[]> {
-    return (await this.getEvents()).filter((event) => event.status.toLowerCase() === "published");
+    const [events, categories, policies] = await Promise.all([
+      requestJson<BackendEvent[]>("/events/published").catch(() => getAllEventsRaw()),
+      getAllCategoriesRaw(),
+      getAllPoliciesRaw()
+    ]);
+    return events
+      .filter((event) => event.status.toLowerCase() === "published")
+      .map((event) =>
+        buildEvent(
+          event,
+          categories.filter((category) => category.eventId === event.eventId).map(mapCategory),
+          policies
+        )
+      );
   },
 
   async getEventById(eventId: string): Promise<Event | null> {
-    return (await this.getEvents()).find((event) => event.eventId === eventId) ?? null;
+    const event = await requestJson<BackendEvent>(`/events/${eventId}`).catch(() => null);
+    return event ? buildEventFromRaw(event) : null;
+  },
+
+  async getEventsByOrganizer(organizerId: string): Promise<Event[]> {
+    const [events, categories, policies] = await Promise.all([
+      requestJson<BackendEvent[]>(`/events/organizer/${organizerId}`),
+      getAllCategoriesRaw(),
+      getAllPoliciesRaw()
+    ]);
+    return events.map((event) =>
+      buildEvent(
+        event,
+        categories.filter((category) => category.eventId === event.eventId).map(mapCategory),
+        policies
+      )
+    );
   },
 
   async getRefundPolicies(): Promise<RefundPolicy[]> {
@@ -726,7 +805,8 @@ export const emtsApi = {
   },
 
   async getRefundPolicyByEvent(eventId: string): Promise<RefundPolicy | null> {
-    return (await this.getRefundPolicies()).find((policy) => policy.eventId === eventId) ?? null;
+    const policy = await getPolicyByEventRaw(eventId).catch(() => null);
+    return policy ? mapRefundPolicy(policy) : null;
   },
 
   async getBookings(): Promise<Booking[]> {
@@ -740,11 +820,31 @@ export const emtsApi = {
   },
 
   async getUserBookings(customerId: string): Promise<Booking[]> {
-    return (await this.getBookings()).filter((booking) => booking.customerId === customerId);
+    const [bookings, tickets] = await Promise.all([getBookingsByUserRaw(customerId), getTicketRawByUser(customerId)]);
+    return bookings.map((booking) =>
+      mapBooking(
+        booking,
+        tickets.filter((ticket) => ticket.bookingId === booking.bookingId).map((ticket) => ticket.ticketId ?? "")
+      )
+    );
+  },
+
+  async getBookingsByEvent(eventId: string): Promise<Booking[]> {
+    const [bookings, tickets] = await Promise.all([getBookingsByEventRaw(eventId), getTicketRawByEvent(eventId)]);
+    return bookings.map((booking) =>
+      mapBooking(
+        booking,
+        tickets.filter((ticket) => ticket.bookingId === booking.bookingId).map((ticket) => ticket.ticketId ?? "")
+      )
+    );
   },
 
   async getBookingById(bookingId: string): Promise<Booking | null> {
-    return (await this.getBookings()).find((booking) => booking.bookingId === bookingId) ?? null;
+    const [booking, tickets] = await Promise.all([
+      requestJson<BackendBooking>(`/bookings/${bookingId}`).catch(() => null),
+      getTicketRawByBooking(bookingId).catch(() => [])
+    ]);
+    return booking ? mapBooking(booking, tickets.map((ticket) => ticket.ticketId ?? "")) : null;
   },
 
   async getPayments(): Promise<Payment[]> {
@@ -752,7 +852,7 @@ export const emtsApi = {
   },
 
   async getPaymentByBooking(bookingId: string): Promise<Payment | null> {
-    return (await this.getPayments()).find((payment) => payment.bookingId === bookingId) ?? null;
+    return getPaymentRawByBooking(bookingId).then(mapPayment).catch(() => null);
   },
 
   async getTickets(): Promise<Ticket[]> {
@@ -765,15 +865,37 @@ export const emtsApi = {
   },
 
   async getTicketsByBooking(bookingId: string): Promise<Ticket[]> {
-    return (await this.getTickets()).filter((ticket) => ticket.bookingId === bookingId);
+    const [booking, tickets] = await Promise.all([
+      requestJson<BackendBooking>(`/bookings/${bookingId}`).catch(() => null),
+      getTicketRawByBooking(bookingId)
+    ]);
+    return mapTicketsWithScopedData(tickets, booking ? [booking] : undefined);
+  },
+
+  async getTicketsByEvent(eventId: string): Promise<Ticket[]> {
+    const [bookings, tickets] = await Promise.all([getBookingsByEventRaw(eventId), getTicketRawByEvent(eventId)]);
+    return mapTicketsWithScopedData(tickets, bookings);
+  },
+
+  async getTicketsByUser(userId: string): Promise<Ticket[]> {
+    const [bookings, tickets] = await Promise.all([getBookingsByUserRaw(userId), getTicketRawByUser(userId)]);
+    return mapTicketsWithScopedData(tickets, bookings);
   },
 
   async getTicketById(ticketId: string): Promise<Ticket | null> {
-    return (await this.getTickets()).find((ticket) => ticket.ticketId === ticketId) ?? null;
+    const backendTicket = await getTicketRawById(ticketId).catch(() => null);
+    if (!backendTicket) return null;
+    const booking = backendTicket.bookingId ? await requestJson<BackendBooking>(`/bookings/${backendTicket.bookingId}`).catch(() => null) : null;
+    const category = backendTicket.categoryId ? await requestJson<BackendTicketCategory>(`/ticket-categories/${backendTicket.categoryId}`).catch(() => null) : null;
+    return mapTicket(backendTicket, booking ? [booking] : [], category ? [category] : []);
   },
 
   async getNotificationsForUser(userId: string): Promise<Notification[]> {
     return (await requestJson<BackendNotification[]>(`/notifications/visible/${userId}`)).map(mapNotification);
+  },
+
+  async getNotificationCountForUser(userId: string): Promise<BackendNotificationCount> {
+    return requestJson<BackendNotificationCount>(`/notifications/visible/${userId}/count`);
   },
 
   async markNotificationAsRead(notificationId: string, userId: string): Promise<Notification> {
@@ -882,9 +1004,8 @@ export const emtsApi = {
     corporateNote?: string;
     items: Array<{ categoryId: string; quantity: number }>;
   }): Promise<CorporateBookingRequest> {
-    const categories = await getAllCategoriesRaw();
     for (const item of payload.items) {
-      const category = categories.find((entry) => entry.categoryId === item.categoryId);
+      const category = await requestJson<BackendTicketCategory>(`/ticket-categories/${item.categoryId}`).catch(() => null);
       if (!category) {
         throw new Error("One of the requested categories no longer exists.");
       }
@@ -1096,14 +1217,20 @@ export const emtsApi = {
         qrCode: createSecretQrCode(ticketId)
       })
     });
-    const [bookings, categories] = await Promise.all([getAllBookingsRaw(), getAllCategoriesRaw()]);
-    return mapTicket(created, bookings, categories);
+    const [booking, category] = await Promise.all([
+      requestJson<BackendBooking>(`/bookings/${payload.bookingId}`).catch(() => null),
+      requestJson<BackendTicketCategory>(`/ticket-categories/${payload.categoryId}`).catch(() => null)
+    ]);
+    return mapTicket(created, booking ? [booking] : [], category ? [category] : []);
   },
 
   async updateTicketStatus(ticketId: string, status: "booked" | "used" | "cancelled"): Promise<Ticket> {
     const created = await requestJson<BackendTicket>(`/tickets/${ticketId}/status?status=${status}`, { method: "PATCH" });
-    const [bookings, categories] = await Promise.all([getAllBookingsRaw(), getAllCategoriesRaw()]);
-    return mapTicket(created, bookings, categories);
+    const [booking, category] = await Promise.all([
+      created.bookingId ? requestJson<BackendBooking>(`/bookings/${created.bookingId}`).catch(() => null) : Promise.resolve(null),
+      created.categoryId ? requestJson<BackendTicketCategory>(`/ticket-categories/${created.categoryId}`).catch(() => null) : Promise.resolve(null)
+    ]);
+    return mapTicket(created, booking ? [booking] : [], category ? [category] : []);
   },
 
   async initiateCheckout(payload: CheckoutRequestDto): Promise<OtpChallengeDto> {
@@ -1122,9 +1249,12 @@ export const emtsApi = {
 
   async cancelTicket(ticketId: string) {
     const result = await requestJson<BackendBulkActionResult>(`/tickets/${ticketId}/cancel`, { method: "POST" });
-    const [bookings, categories] = await Promise.all([getAllBookingsRaw(), getAllCategoriesRaw()]);
     const backendTicket = result.ticket ?? await getTicketRawById(ticketId);
-    const updatedTicket = mapTicket(backendTicket, bookings, categories);
+    const [booking, category] = await Promise.all([
+      backendTicket.bookingId ? requestJson<BackendBooking>(`/bookings/${backendTicket.bookingId}`).catch(() => null) : Promise.resolve(null),
+      backendTicket.categoryId ? requestJson<BackendTicketCategory>(`/ticket-categories/${backendTicket.categoryId}`).catch(() => null) : Promise.resolve(null)
+    ]);
+    const updatedTicket = mapTicket(backendTicket, booking ? [booking] : [], category ? [category] : []);
     const updatedPayment = result.payment ? mapPayment(result.payment) : await this.getPaymentByBooking(updatedTicket.bookingId);
     if (!updatedPayment) throw new Error("Ticket was cancelled, but payment details could not be reloaded.");
 
@@ -1144,8 +1274,8 @@ export const emtsApi = {
 
   async cancelBooking(bookingId: string) {
     const result = await requestJson<BackendBulkActionResult>(`/bookings/${bookingId}/cancel`, { method: "POST" });
-    const [bookings, categories] = await Promise.all([getAllBookingsRaw(), getAllCategoriesRaw()]);
-    const cancelledTickets = (result.tickets ?? []).map((ticket) => mapTicket(ticket, bookings, categories));
+    const booking = await requestJson<BackendBooking>(`/bookings/${bookingId}`).catch(() => null);
+    const cancelledTickets = await mapTicketsWithScopedData(result.tickets ?? [], booking ? [booking] : undefined);
     const updatedPayment = result.payment ? mapPayment(result.payment) : await this.getPaymentByBooking(bookingId);
     if (!updatedPayment) throw new Error("Booking was cancelled, but payment details could not be reloaded.");
 
@@ -1153,20 +1283,16 @@ export const emtsApi = {
   },
 
   async generateOrganizerReport(organizerId: string): Promise<ReportRecord> {
-    const [existingReports, events, bookings, payments, tickets, users] = await Promise.all([
+    const [existingReports, organizerEvents, staffUsers] = await Promise.all([
       this.getReportsByOrganizer(organizerId).catch(() => []),
-      this.getEvents(),
-      this.getBookings(),
-      this.getPayments(),
-      this.getTickets(),
-      this.getUsers()
+      this.getEventsByOrganizer(organizerId),
+      this.searchUsers({ roleCode: "STAFF", size: 100 })
     ]);
 
     const latestExistingReport = existingReports[0]?.parsedData ?? null;
     const previousEventState = Object.fromEntries(
       (latestExistingReport?.events ?? []).map((event) => [event.eventId, event])
     );
-    const organizerEvents = events.filter((event) => event.organizerId === organizerId);
     const assignmentsByEvent = Object.fromEntries(
       await Promise.all(
         organizerEvents.map(async (event) => [
@@ -1175,10 +1301,14 @@ export const emtsApi = {
         ])
       )
     );
-    const eventSummaries = organizerEvents.map((event) => {
-      const eventBookings = bookings.filter((booking) => booking.eventId === event.eventId);
-      const eventTickets = tickets.filter((ticket) => ticket.eventId === event.eventId);
-      const eventPayments = payments.filter((payment) => eventBookings.some((booking) => booking.bookingId === payment.bookingId));
+    const eventSummaries = await Promise.all(organizerEvents.map(async (event) => {
+      const [eventBookings, eventTickets] = await Promise.all([
+        this.getBookingsByEvent(event.eventId),
+        this.getTicketsByEvent(event.eventId)
+      ]);
+      const eventPayments = (await Promise.all(
+        eventBookings.map((booking) => this.getPaymentByBooking(booking.bookingId).catch(() => null))
+      )).filter((payment): payment is Payment => Boolean(payment));
       const checkedInCount = eventTickets.filter((ticket) => ticket.ticketStatus === "USED").length;
       const cancelledTickets = eventTickets.filter((ticket) => ticket.ticketStatus === "CANCELLED").length;
       const soldTickets = eventTickets.filter((ticket) => ticket.ticketStatus !== "CANCELLED").length;
@@ -1186,7 +1316,7 @@ export const emtsApi = {
       const expenseBuckets = previous?.expenseBuckets ?? [];
       const totalExpenses = expenseBuckets.reduce((sum: number, bucket: { amount: number }) => sum + bucket.amount, 0);
       const assignedStaff = ((assignmentsByEvent[event.eventId] ?? []) as StaffEventAssignment[]).map((assignment) => {
-        const staffUser = users.find((user) => user.userId === assignment.staffUserId);
+        const staffUser = staffUsers.find((user) => user.userId === assignment.staffUserId);
         return {
           assignmentId: assignment.assignmentId,
           staffUserId: assignment.staffUserId,
@@ -1203,6 +1333,7 @@ export const emtsApi = {
         startDateTime: event.startDateTime,
         status: event.status,
         seatCapacity: event.seatCapacity,
+        bookingCount: eventBookings.length,
         ticketsSold: soldTickets,
         checkedInCount,
         cancelledTickets,
@@ -1230,7 +1361,8 @@ export const emtsApi = {
           };
         })
       };
-    }).sort((left, right) => getDateTimeMillis(left.startDateTime) - getDateTimeMillis(right.startDateTime));
+    }));
+    eventSummaries.sort((left, right) => getDateTimeMillis(left.startDateTime) - getDateTimeMillis(right.startDateTime));
 
     return this.createReport({
       organizerId,
@@ -1238,7 +1370,7 @@ export const emtsApi = {
       summary: {
         eventCount: organizerEvents.length,
         publishedEventCount: organizerEvents.filter((event) => event.status.toLowerCase() === "published").length,
-        totalBookings: bookings.filter((booking) => organizerEvents.some((event) => event.eventId === booking.eventId)).length,
+        totalBookings: eventSummaries.reduce((sum, event) => sum + (event.bookingCount ?? 0), 0),
         totalTickets: eventSummaries.reduce((sum, event) => sum + event.ticketsSold, 0),
         checkedInTickets: eventSummaries.reduce((sum, event) => sum + event.checkedInCount, 0),
         cancelledTickets: eventSummaries.reduce((sum, event) => sum + event.cancelledTickets, 0),
@@ -1292,8 +1424,11 @@ export const emtsApi = {
       } satisfies TicketScanResult;
     }
 
-    const [bookings, categories] = await Promise.all([getAllBookingsRaw(), getAllCategoriesRaw()]);
-    const ticket = mapTicket(backendTicket, bookings, categories);
+    const [booking, category] = await Promise.all([
+      backendTicket.bookingId ? requestJson<BackendBooking>(`/bookings/${backendTicket.bookingId}`).catch(() => null) : Promise.resolve(null),
+      backendTicket.categoryId ? requestJson<BackendTicketCategory>(`/ticket-categories/${backendTicket.categoryId}`).catch(() => null) : Promise.resolve(null)
+    ]);
+    const ticket = mapTicket(backendTicket, booking ? [booking] : [], category ? [category] : []);
     const details = await buildTicketScanDetails(ticket);
 
     if (expectedEventId && ticket.eventId !== expectedEventId) {

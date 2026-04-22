@@ -15,15 +15,9 @@ export function CorporateTicketsPage() {
     ]);
     const now = Date.now();
 
-    const paidRequests = requests.filter((request) => request.bookingId);
-    const tickets = (
-      await Promise.all(
-        paidRequests.map(async (request) => ({
-          request,
-          tickets: await emtsApi.getTicketsByBooking(request.bookingId!)
-        }))
-      )
-    ).flatMap(({ tickets }) => tickets.filter((ticket) => ticket.ticketStatus === "ACTIVE" || ticket.ticketStatus === "USED"));
+    const paidBookingIds = new Set(requests.filter((request) => request.bookingId).map((request) => request.bookingId));
+    const tickets = (await emtsApi.getTicketsByUser(corporateUserId))
+      .filter((ticket) => paidBookingIds.has(ticket.bookingId) && (ticket.ticketStatus === "ACTIVE" || ticket.ticketStatus === "USED"));
 
     return Object.values(
       tickets.reduce<Record<string, { eventId: string; eventName: string; eventDate?: string; tickets: typeof tickets }>>((accumulator, ticket) => {

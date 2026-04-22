@@ -20,7 +20,7 @@ export function BulkBookingManagement() {
   const [message, setMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { data: eventsData, isLoading, error } = useAsyncResource(
-    async () => (await emtsApi.getEvents()).filter((event) => event.organizerId === organizerId),
+    async () => emtsApi.getEventsByOrganizer(organizerId),
     [organizerId, refreshKey]
   );
   const events = eventsData ?? [];

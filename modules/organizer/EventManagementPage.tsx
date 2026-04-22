@@ -74,23 +74,32 @@ export function EventManagementPage() {
   const [internalTicketQuantityByEvent, setInternalTicketQuantityByEvent] = useState<Record<string, string>>({});
   const [isIssuingInternalForEvent, setIsIssuingInternalForEvent] = useState<string | null>(null);
   const { data, isLoading, error } = useAsyncResource(
-    async () => (await emtsApi.getEvents()).filter((event) => event.organizerId === organizerId),
+    async () => emtsApi.getEventsByOrganizer(organizerId),
     [organizerId, refreshKey]
   );
   const { data: refundPoliciesData } = useAsyncResource(() => emtsApi.getRefundPolicies(), [refreshKey]);
   const { data: corporateRequestsData } = useAsyncResource(() => emtsApi.getCorporateRequestsForOrganizer(organizerId), [organizerId, refreshKey]);
   const { data: corporateProfilesData } = useAsyncResource(() => emtsApi.getCorporateProfiles(), [refreshKey]);
-  const { data: usersData } = useAsyncResource(() => emtsApi.getUsers(), [refreshKey]);
-  const { data: bookingsData } = useAsyncResource(() => emtsApi.getBookings(), [refreshKey]);
-  const { data: paymentsData } = useAsyncResource(() => emtsApi.getPayments(), [refreshKey]);
+  const { data: usersData } = useAsyncResource(() => emtsApi.searchUsers({ roleCode: "STAFF", size: 100 }), [refreshKey]);
+  const { data: bookingsData } = useAsyncResource(
+    async () => (await Promise.all((await emtsApi.getEventsByOrganizer(organizerId)).map((event) => emtsApi.getBookingsByEvent(event.eventId)))).flat(),
+    [organizerId, refreshKey]
+  );
+  const { data: paymentsData } = useAsyncResource(
+    async () => {
+      const eventBookings = (await Promise.all((await emtsApi.getEventsByOrganizer(organizerId)).map((event) => emtsApi.getBookingsByEvent(event.eventId)))).flat();
+      return (await Promise.all(eventBookings.map((booking) => emtsApi.getPaymentByBooking(booking.bookingId).catch(() => null)))).filter((payment) => payment !== null);
+    },
+    [organizerId, refreshKey]
+  );
   const { data: staffAssignmentsData } = useAsyncResource(
     async () =>
       Object.fromEntries(
-        await Promise.all(
-          ((await emtsApi.getEvents()).filter((event) => event.organizerId === organizerId)).map(async (event) => [
-            event.eventId,
-            await emtsApi.getStaffAssignmentsByEvent(event.eventId)
-          ])
+          await Promise.all(
+            (await emtsApi.getEventsByOrganizer(organizerId)).map(async (event) => [
+              event.eventId,
+              await emtsApi.getStaffAssignmentsByEvent(event.eventId)
+            ])
         )
       ),
     [organizerId, refreshKey]

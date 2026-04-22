@@ -6,16 +6,22 @@ import { SectionHeader } from "@/components/ui/SectionHeader";
 import { StatCard } from "@/components/ui/StatCard";
 import { emtsApi } from "@/services/live-api";
 import { useAsyncResource } from "@/services/use-async-resource";
+import { useAuth } from "@/app/providers";
 
 export function AdminDashboard() {
+  const { session } = useAuth();
+  const adminUserId = session?.user.userId ?? "";
   const { data: usersData } = useAsyncResource(() => emtsApi.getUsers(), []);
   const { data: reportsData } = useAsyncResource(() => emtsApi.getReports(), []);
   const { data: eventsData } = useAsyncResource(() => emtsApi.getEvents(), []);
-  const { data: notificationsData } = useAsyncResource(() => emtsApi.getNotificationsForUser("u1"), []);
+  const { data: notificationsData } = useAsyncResource(
+    () => (adminUserId ? emtsApi.getNotificationCountForUser(adminUserId) : Promise.resolve({ total: 0, unread: 0 })),
+    [adminUserId]
+  );
   const users = usersData ?? [];
   const reports = reportsData ?? [];
   const events = eventsData ?? [];
-  const notifications = notificationsData ?? [];
+  const notificationCount = notificationsData?.total ?? 0;
 
   return (
     <div className="grid">
@@ -28,7 +34,7 @@ export function AdminDashboard() {
         <StatCard label="Users" value={`${users.length}`} caption="Live users loaded from the backend" icon={<UserCog size={20} />} />
         <StatCard label="Events" value={`${events.length}`} caption="Total events currently stored" icon={<Settings2 size={20} />} />
         <StatCard label="Reports" value={`${reports.length}`} caption="Organizer reports persisted as JSON" icon={<Download size={20} />} />
-        <StatCard label="Notifications" value={`${notifications.length}`} caption="Notification records currently available" icon={<LockKeyhole size={20} />} />
+        <StatCard label="Notifications" value={`${notificationCount}`} caption="Notifications visible to this admin" icon={<LockKeyhole size={20} />} />
       </div>
       <div className="grid" style={{ gridTemplateColumns: "1fr 1fr" }}>
         <Card>

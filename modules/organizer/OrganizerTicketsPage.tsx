@@ -9,20 +9,12 @@ export function OrganizerTicketsPage() {
   const { session } = useAuth();
   const organizerUserId = session?.user.userId ?? "";
   const { data, isLoading, error } = useAsyncResource(async () => {
-    const [bookings, events] = await Promise.all([
-      emtsApi.getUserBookings(organizerUserId),
+    const [ticketsForUser, events] = await Promise.all([
+      emtsApi.getTicketsByUser(organizerUserId),
       emtsApi.getEvents()
     ]);
 
-    const tickets = (
-      await Promise.all(
-        bookings.map(async (booking) => ({
-          booking,
-          tickets: await emtsApi.getTicketsByBooking(booking.bookingId)
-        }))
-      )
-    )
-      .flatMap(({ tickets }) => tickets)
+    const tickets = ticketsForUser
       .filter(
         (ticket) =>
           ticket.seatLabel.toLowerCase().startsWith("internal usage -") &&

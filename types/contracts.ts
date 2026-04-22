@@ -251,6 +251,7 @@ export interface EventReportSummary {
   startDateTime: string;
   status: string;
   seatCapacity: number;
+  bookingCount?: number;
   ticketsSold: number;
   checkedInCount: number;
   cancelledTickets: number;

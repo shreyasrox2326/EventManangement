@@ -121,7 +121,10 @@ export function StaffScannerPage() {
 
   const { data: assignmentsData } = useAsyncResource(() => emtsApi.getStaffAssignmentsByUser(staffUserId), [staffUserId]);
   const { data: eventsData } = useAsyncResource(() => emtsApi.getEvents(), []);
-  const { data: ticketsData } = useAsyncResource(() => emtsApi.getTickets(), [ticketsRefreshKey]);
+  const { data: ticketsData } = useAsyncResource(
+    () => (selectedEventId ? emtsApi.getTicketsByEvent(selectedEventId) : Promise.resolve([])),
+    [selectedEventId, ticketsRefreshKey]
+  );
   const assignments = assignmentsData ?? [];
   const events = eventsData ?? [];
   const tickets = ticketsData ?? [];

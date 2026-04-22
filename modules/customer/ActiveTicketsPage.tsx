@@ -10,9 +10,10 @@ export function ActiveTicketsPage() {
   const { session } = useAuth();
   const customerId = session?.user.userId ?? "";
   const { data, isLoading, error } = useAsyncResource(async () => {
-    const bookings = await emtsApi.getUserBookings(customerId);
-    const tickets = (await Promise.all(bookings.map((booking) => emtsApi.getTicketsByBooking(booking.bookingId)))).flat();
-    const events = await emtsApi.getEvents();
+    const [tickets, events] = await Promise.all([
+      emtsApi.getTicketsByUser(customerId),
+      emtsApi.getEvents()
+    ]);
     const visibleTickets = tickets.filter((ticket) => ticket.ticketStatus === "ACTIVE" || ticket.ticketStatus === "USED");
 
     return Object.values(

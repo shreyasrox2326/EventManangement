@@ -21,12 +21,24 @@ export function OrganizerDashboard() {
   const [showApprovedRequests, setShowApprovedRequests] = useState(false);
   const [showRejectedRequests, setShowRejectedRequests] = useState(false);
   const { data: organizerEventsData, isLoading } = useAsyncResource(
-    async () => (await emtsApi.getEvents()).filter((event) => event.organizerId === organizerId),
+    async () => emtsApi.getEventsByOrganizer(organizerId),
     [organizerId]
   );
-  const { data: bookingsData } = useAsyncResource(() => emtsApi.getBookings(), [organizerId]);
-  const { data: paymentsData } = useAsyncResource(() => emtsApi.getPayments(), [organizerId]);
-  const { data: ticketsData } = useAsyncResource(() => emtsApi.getTickets(), [organizerId]);
+  const { data: bookingsData } = useAsyncResource(
+    async () => (await Promise.all((await emtsApi.getEventsByOrganizer(organizerId)).map((event) => emtsApi.getBookingsByEvent(event.eventId)))).flat(),
+    [organizerId]
+  );
+  const { data: paymentsData } = useAsyncResource(
+    async () => {
+      const eventBookings = (await Promise.all((await emtsApi.getEventsByOrganizer(organizerId)).map((event) => emtsApi.getBookingsByEvent(event.eventId)))).flat();
+      return (await Promise.all(eventBookings.map((booking) => emtsApi.getPaymentByBooking(booking.bookingId).catch(() => null)))).filter((payment) => payment !== null);
+    },
+    [organizerId]
+  );
+  const { data: ticketsData } = useAsyncResource(
+    async () => (await Promise.all((await emtsApi.getEventsByOrganizer(organizerId)).map((event) => emtsApi.getTicketsByEvent(event.eventId)))).flat(),
+    [organizerId]
+  );
   const { data: reportsData } = useAsyncResource(() => emtsApi.getReportsByOrganizer(organizerId), [organizerId]);
   const { data: corporateRequestsData } = useAsyncResource(() => emtsApi.getCorporateRequestsForOrganizer(organizerId), [organizerId]);
   const { data: corporateProfilesData } = useAsyncResource(() => emtsApi.getCorporateProfiles(), [organizerId]);

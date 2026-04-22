@@ -13,6 +13,7 @@ const roleOptions: UserRole[] = ["CUSTOMER", "ORGANIZER", "STAFF", "ADMIN", "COR
 
 type SearchField = "fullName" | "emailAddress" | "phoneNumber" | "userId";
 type MatchMode = "contains" | "exact";
+type RoleFilter = UserRole | "ALL";
 
 const fieldLabels: Record<SearchField, string> = {
   fullName: "Name",
@@ -66,10 +67,24 @@ export function UserManagementPage() {
   const [submittedQuery, setSubmittedQuery] = useState("");
   const [submittedField, setSubmittedField] = useState<SearchField>("emailAddress");
   const [submittedMatchMode, setSubmittedMatchMode] = useState<MatchMode>("contains");
+  const [roleFilter, setRoleFilter] = useState<RoleFilter>("ALL");
+  const [submittedRoleFilter, setSubmittedRoleFilter] = useState<RoleFilter>("ALL");
   const [selectedUserId, setSelectedUserId] = useState("");
   const [pendingRole, setPendingRole] = useState<UserRole>("CUSTOMER");
   const [isUpdatingUserId, setIsUpdatingUserId] = useState<string | null>(null);
-  const { data, isLoading, error } = useAsyncResource(() => emtsApi.getUsers(), [refreshKey]);
+  const { data, isLoading, error } = useAsyncResource(
+    () => {
+      if (!showAll && !submittedQuery.trim()) {
+        return Promise.resolve([]);
+      }
+      return emtsApi.searchUsers({
+        query: submittedQuery,
+        roleCode: submittedRoleFilter === "ALL" ? undefined : submittedRoleFilter,
+        size: showAll ? 100 : 50
+      });
+    },
+    [refreshKey, showAll, submittedQuery, submittedRoleFilter]
+  );
 
   const users = useMemo(
     () => (data ?? []).filter((user) => user.userId !== currentUserId),
@@ -77,16 +92,11 @@ export function UserManagementPage() {
   );
 
   const results = useMemo(() => {
-    if (showAll) {
+    if (!submittedQuery.trim()) {
       return users;
     }
-
-    if (!submittedQuery.trim()) {
-      return [];
-    }
-
     return users.filter((user) => matchesUser(user, submittedField, submittedQuery, submittedMatchMode));
-  }, [showAll, submittedField, submittedMatchMode, submittedQuery, users]);
+  }, [submittedField, submittedMatchMode, submittedQuery, users]);
 
   const selectedUser = useMemo(
     () => results.find((user) => user.userId === selectedUserId) ?? null,
@@ -110,12 +120,14 @@ export function UserManagementPage() {
     setSubmittedQuery(query);
     setSubmittedField(searchField);
     setSubmittedMatchMode(matchMode);
+    setSubmittedRoleFilter(roleFilter);
     setMessage("");
   };
 
   const handleShowAll = () => {
     setShowAll(true);
     setSubmittedQuery("");
+    setSubmittedRoleFilter(roleFilter);
     setMessage("");
   };
 
@@ -184,6 +196,19 @@ export function UserManagementPage() {
             <select className="select" value={matchMode} onChange={(event) => setMatchMode(event.target.value as MatchMode)}>
               <option value="contains">Contains</option>
               <option value="exact">Exact</option>
+            </select>
+          </label>
+          <label>
+            <div className="eyebrow" style={{ marginBottom: 8 }}>
+              Role Filter
+            </div>
+            <select className="select" value={roleFilter} onChange={(event) => setRoleFilter(event.target.value as RoleFilter)}>
+              <option value="ALL">All roles</option>
+              {roleOptions.map((role) => (
+                <option key={role} value={role}>
+                  {roleLabels[role]}
+                </option>
+              ))}
             </select>
           </label>
         </div>
