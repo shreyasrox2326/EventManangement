@@ -145,11 +145,15 @@ export function EventManagementPage() {
         requestId,
         organizerNote: requestNotes[requestId] ?? "",
         expiresAt: resolvedExpiry,
-        items: request.items.map((item) => ({
-          categoryId: item.categoryId,
-          quantity: Number(requestQuantities[requestId]?.[item.categoryId] ?? item.requestedQty),
-          offeredUnitPrice: Number(requestPrices[requestId]?.[item.categoryId] ?? item.offeredUnitPrice ?? 0)
-        }))
+        items: request.items.map((item) => {
+          const event = events.find((entry) => entry.eventId === eventId);
+          const category = event?.ticketCategories.find((entry) => entry.ticketCategoryId === item.categoryId);
+          return {
+            categoryId: item.categoryId,
+            quantity: Number(requestQuantities[requestId]?.[item.categoryId] ?? item.requestedQty),
+            offeredUnitPrice: Number(requestPrices[requestId]?.[item.categoryId] ?? category?.unitPrice ?? item.offeredUnitPrice ?? 0)
+          };
+        })
       });
       setRefreshKey((current) => current + 1);
       setMessage(`Corporate request ${requestId} approved for event ${eventId}.`);
