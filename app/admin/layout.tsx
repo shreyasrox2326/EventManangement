@@ -7,7 +7,6 @@ import { PortalShell } from "@/components/navigation/PortalShell";
 const navItems = [
   { label: "Dashboard", href: "/admin" },
   { label: "Manage Users", href: "/admin/users" },
-  { label: "Reports", href: "/admin/reports" },
   { label: "Notifications", href: "/admin/notifications" }
 ];
 
