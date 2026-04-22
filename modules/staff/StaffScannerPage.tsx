@@ -94,6 +94,8 @@ export function StaffScannerPage() {
   const [autoMarkPresent, setAutoMarkPresent] = useState(true);
   const [cameraMessage, setCameraMessage] = useState("Open the camera and scan a ticket QR code.");
   const [selectedEventId, setSelectedEventId] = useState("");
+  const [ticketsRefreshKey, setTicketsRefreshKey] = useState(0);
+  const [locallyUsedTicketIds, setLocallyUsedTicketIds] = useState<Set<string>>(() => new Set());
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const readerRef = useRef<BrowserQRCodeReader | null>(null);
   const scannerControlsRef = useRef<IScannerControls | null>(null);
@@ -117,7 +119,7 @@ export function StaffScannerPage() {
 
   const { data: assignmentsData } = useAsyncResource(() => emtsApi.getStaffAssignmentsByUser(staffUserId), [staffUserId]);
   const { data: eventsData } = useAsyncResource(() => emtsApi.getEvents(), []);
-  const { data: ticketsData } = useAsyncResource(() => emtsApi.getTickets(), []);
+  const { data: ticketsData } = useAsyncResource(() => emtsApi.getTickets(), [ticketsRefreshKey]);
   const assignments = assignmentsData ?? [];
   const events = eventsData ?? [];
   const tickets = ticketsData ?? [];
@@ -126,7 +128,9 @@ export function StaffScannerPage() {
   );
   const selectedEvent = assignedEvents.find((event) => event.eventId === selectedEventId) ?? assignedEvents[0] ?? null;
   const selectedEventTickets = selectedEvent ? tickets.filter((ticket) => ticket.eventId === selectedEvent.eventId) : [];
-  const selectedEventPresentCount = selectedEventTickets.filter((ticket) => ticket.ticketStatus === "USED").length;
+  const selectedEventPresentCount = selectedEventTickets.filter(
+    (ticket) => ticket.ticketStatus === "USED" || locallyUsedTicketIds.has(ticket.ticketId)
+  ).length;
 
   useEffect(() => {
     if (!selectedEventId && assignedEvents[0]) {
@@ -153,6 +157,10 @@ export function StaffScannerPage() {
       const result = autoMarkPresent
         ? await emtsApi.scanAndMarkTicket(normalizedValue, selectedEvent?.eventId)
         : await emtsApi.validateTicket(normalizedValue, selectedEvent?.eventId);
+      if (autoMarkPresent && result.outcome === "VALID" && result.ticket?.ticketId) {
+        setLocallyUsedTicketIds((current) => new Set(current).add(result.ticket!.ticketId));
+        setTicketsRefreshKey((current) => current + 1);
+      }
       setScanState(result);
       setCameraMessage(result.message);
     } catch (error) {
@@ -231,6 +239,8 @@ export function StaffScannerPage() {
         statusLabel: "Present",
         message: "Ticket validated and attendee marked present."
       });
+      setLocallyUsedTicketIds((current) => new Set(current).add(updatedTicket.ticketId));
+      setTicketsRefreshKey((current) => current + 1);
       setCameraMessage("Ticket validated and attendee marked present.");
     } catch (error) {
       setCameraMessage(error instanceof Error ? error.message : "Unable to mark the ticket present.");
